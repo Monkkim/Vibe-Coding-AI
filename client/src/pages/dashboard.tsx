@@ -22,7 +22,8 @@ import {
   Users,
   UserPlus,
   ArrowLeft,
-  BookOpen
+  BookOpen,
+  Sun
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -153,107 +154,180 @@ function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode, 
 }
 
 function CrackTimeSection() {
-  const { sendMessage, isLoading, insight, actionMap } = useCrackTime();
+  const { sendMessage, isLoading, insight, actionMap, fogInput } = useCrackTime();
+  const { user } = useAuth();
   const [input, setInput] = useState("");
+  const [hasResult, setHasResult] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    sendMessage(input);
+    sendMessage(input, user?.firstName || "");
+    setHasResult(true);
   };
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-200px)]">
-      {/* Input Section */}
-      <div className="flex flex-col justify-center space-y-8">
-        <div>
-          <h2 className="text-4xl font-display font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/60">
-            Crack Time
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            지금 당신을 가로막고 있는 <span className="text-primary font-medium">안개(Fog)</span>는 무엇인가요?<br />
-            명확하게 적을수록 빛은 더 선명해집니다.
-          </p>
-        </div>
+  const today = new Date();
+  const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+  const userName = user?.firstName || "Viber";
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-500 blur-lg"></div>
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="예: 기술 스택을 선정하는 기준이 모호해서 프로젝트 시작을 못하고 있어요."
-              className="relative w-full h-16 rounded-2xl bg-white/80 dark:bg-black/50 border-white/20 text-lg px-6 shadow-xl focus:ring-2 ring-primary/50 transition-all"
-            />
+  const actionDotColors = [
+    "bg-red-500",
+    "bg-yellow-500", 
+    "bg-green-500"
+  ];
+
+  if (hasResult && insight) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }}
+        className="max-w-2xl mx-auto"
+      >
+        <div className="bg-gradient-to-b from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-white" />
+              <span className="text-white font-bold text-xl tracking-wide">CRACK TIME</span>
+            </div>
+            <span className="text-white/90 text-sm font-medium">{formattedDate}</span>
           </div>
-          <Button 
-            type="submit" 
-            disabled={isLoading || !input}
-            className="w-full h-14 rounded-2xl bg-foreground text-background hover:bg-foreground/90 font-bold text-lg shadow-lg transition-all active:scale-[0.98]"
-          >
-            {isLoading ? (
-              <span className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 animate-spin" /> 안개를 걷어내는 중...
-              </span>
-            ) : (
-              "빛(Insight) 발견하기"
-            )}
-          </Button>
-        </form>
-      </div>
 
-      {/* Output Section */}
-      <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-100/50 to-blue-100/50 dark:from-amber-900/10 dark:to-blue-900/10 rounded-3xl blur-3xl -z-10"></div>
-        <div className="h-full flex flex-col justify-center space-y-6 p-4">
-          {insight ? (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }} 
-              animate={{ opacity: 1, scale: 1 }}
-              className="glass-card rounded-3xl p-8 border-t-4 border-t-amber-500 shadow-2xl"
-            >
-              <div className="mb-6">
-                <div className="flex items-center gap-2 text-amber-600 font-bold mb-2 uppercase tracking-wider text-sm">
-                  <Sparkles className="w-4 h-4" /> Insight
+          <div className="p-6 space-y-6">
+            <div className="border-l-4 border-amber-500 pl-4">
+              <h2 className="text-2xl font-bold text-foreground">{userName} 대표님</h2>
+              <p className="text-amber-600 dark:text-amber-400 text-sm mt-1">
+                크랙 타임이 당신의 관점을 밝게 바꿔드립니다!
+              </p>
+            </div>
+
+            <Card className="bg-white/80 dark:bg-black/30 border-0 shadow-sm">
+              <div className="p-5">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold mb-3 text-sm">
+                  <Sparkles className="w-4 h-4" />
+                  현재의 안개 (고민 상황)
                 </div>
-                <h3 className="text-2xl font-bold leading-relaxed text-foreground">
-                  {insight}
-                </h3>
+                <p className="text-foreground/80 leading-relaxed text-sm">
+                  {fogInput || input}
+                </p>
               </div>
-              
-              <Separator className="my-6 bg-border/50" />
-              
-              <div>
-                <div className="flex items-center gap-2 text-blue-600 font-bold mb-4 uppercase tracking-wider text-sm">
-                  <MapIcon className="w-4 h-4" /> Action Map
+            </Card>
+
+            <Card className="bg-white/80 dark:bg-black/30 border-0 shadow-sm">
+              <div className="p-5">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold mb-3 text-sm">
+                  <Sun className="w-4 h-4" />
+                  관점의 빛 (크랙 포인트)
                 </div>
-                <ul className="space-y-4">
+                <h3 className="text-lg font-bold text-foreground leading-relaxed mb-3">
+                  {insight.split('.')[0]}.
+                </h3>
+                <p className="text-foreground/70 text-sm leading-relaxed">
+                  {insight.split('.').slice(1).join('.').trim()}
+                </p>
+              </div>
+            </Card>
+
+            <Card className="bg-white/80 dark:bg-black/30 border-0 shadow-sm">
+              <div className="p-5">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold mb-4 text-sm">
+                  <MapIcon className="w-4 h-4" />
+                  오늘의 지도 (Next Action)
+                </div>
+                <ul className="space-y-3">
                   {actionMap.map((action, i) => (
                     <motion.li 
                       key={i}
-                      initial={{ opacity: 0, x: -20 }}
+                      initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.1 }}
-                      className="flex items-start gap-4 p-4 rounded-xl bg-white/50 dark:bg-white/5 border border-white/20"
+                      className="flex items-start gap-3"
                     >
-                      <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-sm flex-shrink-0">
-                        {i + 1}
-                      </div>
-                      <span className="text-foreground/90">{action}</span>
+                      <div className={`w-2.5 h-2.5 rounded-full ${actionDotColors[i % 3]} mt-1.5 flex-shrink-0`} />
+                      <span className="text-foreground/80 text-sm leading-relaxed">{action}</span>
                     </motion.li>
                   ))}
                 </ul>
               </div>
-            </motion.div>
-          ) : (
-            <div className="h-full border-2 border-dashed border-border/50 rounded-3xl flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
-              <div className="w-20 h-20 bg-muted/30 rounded-full flex items-center justify-center mb-6">
-                <Sparkles className="w-8 h-8 text-muted-foreground/50" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">아직 지도가 없습니다</h3>
-              <p>좌측에 고민을 입력하여<br/>성장의 실마리를 찾아보세요.</p>
+            </Card>
+
+            <div className="text-center pt-4 pb-2">
+              <p className="text-xs text-muted-foreground tracking-widest">
+                MORNING SUNLIGHT · BREAKING LIMITS · CRACK TIME
+              </p>
             </div>
-          )}
+
+            <Button 
+              onClick={() => { setHasResult(false); setInput(""); }}
+              variant="outline"
+              className="w-full"
+              data-testid="button-new-crack"
+            >
+              새로운 고민 입력하기
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-gradient-to-b from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-2xl overflow-hidden shadow-lg">
+        <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-white" />
+            <span className="text-white font-bold text-xl tracking-wide">CRACK TIME</span>
+          </div>
+          <span className="text-white/90 text-sm font-medium">{formattedDate}</span>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="border-l-4 border-amber-500 pl-4">
+            <h2 className="text-2xl font-bold text-foreground">{userName} 대표님</h2>
+            <p className="text-amber-600 dark:text-amber-400 text-sm mt-1">
+              크랙 타임이 당신의 관점을 밝게 바꿔드립니다!
+            </p>
+          </div>
+
+          <Card className="bg-white/80 dark:bg-black/30 border-0 shadow-sm">
+            <div className="p-5">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold mb-3 text-sm">
+                <Sparkles className="w-4 h-4" />
+                현재의 안개 (고민 상황)
+              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="지금 당신을 가로막고 있는 고민이나 안개가 무엇인가요? 명확하게 적을수록 빛은 더 선명해집니다."
+                  className="min-h-[120px] resize-none border-amber-200 dark:border-amber-800 focus:ring-amber-500 bg-white/50 dark:bg-black/20"
+                  data-testid="input-fog"
+                />
+                <Button 
+                  type="submit" 
+                  disabled={isLoading || !input.trim()}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                  data-testid="button-crack-submit"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 animate-spin" /> 관점의 빛을 찾는 중...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Sun className="w-4 h-4" /> 크랙 포인트 발견하기
+                    </span>
+                  )}
+                </Button>
+              </form>
+            </div>
+          </Card>
+
+          <div className="text-center pt-4">
+            <p className="text-xs text-muted-foreground tracking-widest">
+              MORNING SUNLIGHT · BREAKING LIMITS · CRACK TIME
+            </p>
+          </div>
         </div>
       </div>
     </div>
