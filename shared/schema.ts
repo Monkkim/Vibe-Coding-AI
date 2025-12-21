@@ -31,9 +31,13 @@ export const insertJournalSchema = createInsertSchema(journals).omit({
 export const tokens = pgTable("tokens", {
   id: serial("id").primaryKey(),
   fromUserId: varchar("from_user_id").notNull(),
-  toUserId: varchar("to_user_id").notNull(),
+  toUserId: varchar("to_user_id").notNull(), // Can be batch member name or user id
+  receiverName: text("receiver_name").notNull(), // Display name
+  senderName: text("sender_name").notNull(), // Display name
+  amount: integer("amount").notNull().default(10000), // Amount in won (만원 unit)
   category: text("category").notNull(), // 'influence', 'growth', 'execution', 'camaraderie'
   message: text("message").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending', 'accepted'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

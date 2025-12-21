@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import type { InsertFolder, InsertBatchMember } from "@shared/schema";
+import type { InsertFolder, InsertBatchMember, BatchMember } from "@shared/schema";
 
 export function useFolders() {
   return useQuery({
@@ -98,6 +98,18 @@ export function useDeleteBatchMember() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/folders', data.folderId, 'members'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/batch-members'] });
+    },
+  });
+}
+
+export function useAllBatchMembers() {
+  return useQuery<BatchMember[]>({
+    queryKey: ['/api/batch-members'],
+    queryFn: async () => {
+      const res = await fetch(api.batchMembers.listAll.path, { credentials: "include" });
+      if (!res.ok) throw new Error("멤버 목록을 불러오는데 실패했습니다.");
+      return res.json();
     },
   });
 }

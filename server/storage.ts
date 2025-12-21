@@ -20,8 +20,9 @@ export interface IStorage extends IAuthStorage {
   deleteJournal(id: number): Promise<void>;
 
   // Tokens
-  getTokens(): Promise<(Token & { senderName: string | null, receiverName: string | null })[]>;
+  getTokens(): Promise<Token[]>;
   createToken(token: InsertToken): Promise<Token>;
+  acceptToken(id: number): Promise<Token>;
 
   // Leads
   getLeads(): Promise<Lead[]>;
@@ -35,6 +36,7 @@ export interface IStorage extends IAuthStorage {
 
   // Batch Members
   getBatchMembers(folderId: number): Promise<BatchMember[]>;
+  getAllBatchMembers(): Promise<BatchMember[]>;
   createBatchMember(member: InsertBatchMember): Promise<BatchMember>;
   deleteBatchMember(id: number): Promise<void>;
   
@@ -84,31 +86,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   // --- Tokens ---
-  async getTokens(): Promise<(Token & { senderName: string | null, receiverName: string | null })[]> {
-    const senderAlias = alias(users, 'sender');
-    const receiverAlias = alias(users, 'receiver');
-    
-    const results = await db
-      .select({
-        id: tokens.id,
-        fromUserId: tokens.fromUserId,
-        toUserId: tokens.toUserId,
-        category: tokens.category,
-        message: tokens.message,
-        createdAt: tokens.createdAt,
-        senderName: sql<string | null>`COALESCE(${senderAlias.firstName} || ' ' || ${senderAlias.lastName}, ${senderAlias.firstName}, 'Unknown')`.as('senderName'),
-        receiverName: sql<string | null>`COALESCE(${receiverAlias.firstName} || ' ' || ${receiverAlias.lastName}, ${receiverAlias.firstName}, 'Unknown')`.as('receiverName'),
-      })
-      .from(tokens)
-      .leftJoin(senderAlias, eq(tokens.fromUserId, senderAlias.id))
-      .leftJoin(receiverAlias, eq(tokens.toUserId, receiverAlias.id))
-      .orderBy(desc(tokens.createdAt));
-    
-    return results;
+  async getTokens(): Promise<Token[]> {
+    return await db.select().from(tokens).orderBy(desc(tokens.createdAt));
   }
 
   async createToken(insertToken: InsertToken): Promise<Token> {
     const [token] = await db.insert(tokens).values(insertToken).returning();
+    return token;
+  }
+
+  async acceptToken(id: number): Promise<Token> {
+    const [token] = await db.update(tokens).set({ status: "accepted" }).where(eq(tokens.id, id)).returning();
     return token;
   }
 
@@ -146,6 +134,10 @@ export class DatabaseStorage implements IStorage {
   // --- Batch Members ---
   async getBatchMembers(folderId: number): Promise<BatchMember[]> {
     return await db.select().from(batchMembers).where(eq(batchMembers.folderId, folderId)).orderBy(desc(batchMembers.createdAt));
+  }
+
+  async getAllBatchMembers(): Promise<BatchMember[]> {
+    return await db.select().from(batchMembers).orderBy(batchMembers.name);
   }
 
   async createBatchMember(insertMember: InsertBatchMember): Promise<BatchMember> {

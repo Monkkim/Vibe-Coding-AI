@@ -1,218 +1,554 @@
-import { useTokens, useCreateToken } from "@/hooks/use-tokens";
+import { useTokens, useCreateToken, useAcceptToken } from "@/hooks/use-tokens";
 import { useAuth } from "@/hooks/use-auth";
-import { useUsers } from "@/hooks/use-folders";
+import { useAllBatchMembers } from "@/hooks/use-folders";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Coins, Trophy, Medal } from "lucide-react";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTokenSchema, type InsertToken } from "@shared/schema";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Coins, Trophy, Gift, Target, Heart, Sparkles, Clock, TrendingUp } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import type { Token } from "@shared/schema";
+
+const AMOUNT_OPTIONS = [
+  { value: 10000, label: "1만" },
+  { value: 30000, label: "3만" },
+  { value: 50000, label: "5만" },
+  { value: 70000, label: "7만" },
+  { value: 100000, label: "10만" },
+];
+
+const VALUE_CATEGORIES = [
+  { value: "coaching", label: "코칭 세션이 큰 도움이 됐어요!", icon: Sparkles },
+  { value: "feedback", label: "빠른 피드백 덕분에 방향을 잡았어요!", icon: TrendingUp },
+  { value: "insight", label: "통찰력 있는 조언이 문제 해결에 도움됐어요!", icon: Target },
+  { value: "execution", label: "실행 가능한 구체적 방법을 제시해줘서 좋았어요!", icon: Gift },
+  { value: "custom", label: "직접 입력", icon: Heart },
+];
 
 export function TokenGame() {
   const { data: tokens, isLoading } = useTokens();
-  const [isGiveOpen, setGiveOpen] = useState(false);
+  const { user } = useAuth();
   
-  // Calculate leaderboard
-  const leaderboard = tokens?.reduce((acc, token) => {
-    const userId = token.toUserId;
-    if (!acc[userId]) {
-      acc[userId] = { name: token.receiverName || "Unknown", count: 0 };
-    }
-    acc[userId].count += 1;
-    return acc;
-  }, {} as Record<string, { name: string, count: number }>);
-  
-  const sortedLeaderboard = Object.entries(leaderboard || {})
-    .sort(([, a], [, b]) => b.count - a.count)
-    .slice(0, 5);
+  const myStats = useMemo(() => {
+    if (!tokens || !user) return { received: 0, given: 0, pending: 0, today: 0, thisWeek: 0, cumulative: 0 };
+    
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    
+    const userIdentifiers = [
+      user.firstName,
+      user.email,
+      user.id,
+      `${user.firstName} ${user.lastName}`.trim()
+    ].filter(Boolean);
+    
+    const isMe = (name: string | null | undefined) => 
+      name && userIdentifiers.some(id => id?.toLowerCase() === name.toLowerCase());
+    
+    let received = 0, given = 0, pending = 0, today = 0, thisWeek = 0, cumulative = 0;
+    
+    tokens.forEach((t: Token) => {
+      if (isMe(t.receiverName) || t.toUserId === user.id) {
+        received += t.amount;
+        cumulative += t.amount;
+        if (t.status === "pending") pending += t.amount;
+        if (new Date(t.createdAt) >= startOfDay) today += t.amount;
+        if (new Date(t.createdAt) >= startOfWeek) thisWeek += t.amount;
+      }
+      if (isMe(t.senderName) || t.fromUserId === user.id) {
+        given += t.amount;
+      }
+    });
+    
+    return { received, given, pending, today, thisWeek, cumulative };
+  }, [tokens, user]);
+
+  const leaderboard = useMemo(() => {
+    if (!tokens) return [];
+    const scores: Record<string, number> = {};
+    tokens.forEach((t: Token) => {
+      if (t.receiverName) {
+        scores[t.receiverName] = (scores[t.receiverName] || 0) + t.amount;
+      }
+    });
+    return Object.entries(scores)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 8)
+      .map(([name, amount], index) => ({ name, amount, rank: index + 1 }));
+  }, [tokens]);
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground animate-pulse">로딩 중...</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold font-display flex items-center gap-2">
-            <Coins className="text-amber-500" />
-            명예의 전당
-          </h2>
-          <p className="text-muted-foreground text-sm">동료에게 감사를 전하세요</p>
-        </div>
-        <GiveTokenDialog open={isGiveOpen} onOpenChange={setGiveOpen} />
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold font-display flex items-center justify-center gap-3 text-amber-600">
+          <Coins className="w-8 h-8" />
+          가치 토큰 GAME
+        </h2>
+        <p className="text-muted-foreground text-sm mt-1">1:1 기여 기반 코칭 토큰 시스템</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Leaderboard Section */}
-        <Card className="glass-card rounded-3xl p-6 lg:col-span-1 border-amber-200/50 dark:border-amber-900/30">
-          <div className="flex items-center gap-2 mb-4 text-amber-600 font-bold">
-            <Trophy className="w-5 h-5" />
-            <span>Top Contributors</span>
-          </div>
-          <div className="space-y-4">
-            {sortedLeaderboard.map(([id, user], index) => (
-              <div key={id} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    index === 0 ? 'bg-amber-400 text-white' : 
-                    index === 1 ? 'bg-slate-300 text-slate-600' :
-                    index === 2 ? 'bg-amber-700/50 text-white' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <span className="font-medium">{user.name}</span>
-                </div>
-                <div className="flex items-center gap-1 text-amber-600 font-mono font-bold">
-                  {user.count} <Coins className="w-3 h-3" />
-                </div>
-              </div>
-            ))}
-            {sortedLeaderboard.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground py-4">아직 토큰이 없습니다.</p>
-            )}
-          </div>
-        </Card>
+      <GameRulesSection />
 
-        {/* Recent Feed */}
-        <div className="lg:col-span-2 space-y-4">
-          <h3 className="font-semibold text-muted-foreground text-sm px-2">최근 활동</h3>
-          {tokens?.slice(0, 5).map((token) => (
-            <div key={token.id} className="glass-card rounded-2xl p-4 flex items-start gap-4">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-full text-amber-600">
-                <Medal className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <p className="font-medium">
-                    <span className="text-primary">{token.senderName}</span>님이 
-                    <span className="text-primary"> {token.receiverName}</span>님에게 토큰을 보냈습니다.
-                  </p>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(token.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1 bg-muted/30 p-2 rounded-lg inline-block">
-                  "{token.message}"
-                </p>
-                <div className="mt-2">
-                  <span className="text-xs px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                    #{token.category}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-3 space-y-4">
+          <ProfileCard user={user} stats={myStats} />
+          <PendingReceiveCard pending={myStats.pending} tokens={tokens} user={user} />
         </div>
+
+        <div className="lg:col-span-5">
+          <RecognizeValueForm user={user} />
+        </div>
+
+        <div className="lg:col-span-4 space-y-4">
+          <RealtimeActivityFeed tokens={tokens} />
+          <LeaderboardCard leaderboard={leaderboard} userName={user?.firstName} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ReceivedStatsCard stats={myStats} />
+        <GivenValueCard given={myStats.given} />
       </div>
     </div>
   );
 }
 
-function GiveTokenDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (v: boolean) => void }) {
-  const { user } = useAuth();
-  const { data: allUsers, isLoading: usersLoading } = useUsers();
-  const createToken = useCreateToken();
+function GameRulesSection() {
+  return (
+    <Card className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200/50 dark:border-amber-800/30">
+      <h3 className="text-lg font-bold text-center mb-6 flex items-center justify-center gap-2 text-amber-700 dark:text-amber-400">
+        <Trophy className="w-5 h-5" /> 게임 방법
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+        <div className="space-y-2">
+          <div className="w-12 h-12 mx-auto rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600">
+            <Gift className="w-6 h-6" />
+          </div>
+          <h4 className="font-semibold">1. 가치 인정하기</h4>
+          <p className="text-sm text-muted-foreground">동료의 가치를 토큰으로 인정합니다. 받은 것의 가치를 숫자로 표현하며 감사를 구체화하는 연습입니다.</p>
+        </div>
+        <div className="space-y-2">
+          <div className="w-12 h-12 mx-auto rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600">
+            <Clock className="w-6 h-6" />
+          </div>
+          <h4 className="font-semibold">2. 받기 대기</h4>
+          <p className="text-sm text-muted-foreground">동료들이 인정해준 나의 가치가 여기 쌓입니다. 아직 내가 받지 않은 것들입니다.</p>
+        </div>
+        <div className="space-y-2">
+          <div className="w-12 h-12 mx-auto rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center text-green-600">
+            <Heart className="w-6 h-6" />
+          </div>
+          <h4 className="font-semibold">3. 감사하며 받기</h4>
+          <p className="text-sm text-muted-foreground">이것이 진짜 받기입니다. 내 가치를 내가 인정하고 감사하며 받아들이는 순간입니다.</p>
+        </div>
+      </div>
+      
+      <div className="mt-6 p-4 bg-amber-100/50 dark:bg-amber-900/20 rounded-lg">
+        <h4 className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-2">
+          <Sparkles className="w-4 h-4" /> 게임의 진짜 의도
+        </h4>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          우리는 주는 데는 익숙하지만, 받는 데는 서툽니다. "이 정도로 돈을 받아도 되나?" 하는 의심이 가격을 낮춥니다.
+          이 게임은 <span className="font-semibold text-foreground">받기를 연습</span>하는 공간입니다.
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+function ProfileCard({ user, stats }: { user: any; stats: any }) {
+  const level = Math.floor(stats.cumulative / 1000000) + 1;
+  const progress = (stats.cumulative % 1000000) / 1000000 * 100;
+  const nextLevelAmount = level * 1000000;
+  const remaining = nextLevelAmount - stats.cumulative;
+
+  return (
+    <Card className="p-6 bg-gradient-to-br from-emerald-400 to-teal-500 text-white overflow-visible">
+      <div className="text-center">
+        <div className="w-16 h-16 mx-auto bg-white/20 rounded-full flex items-center justify-center mb-3 text-4xl">
+          <span role="img" aria-label="tree">&#127794;</span>
+        </div>
+        <h3 className="text-xl font-bold">숙련 코치</h3>
+        <p className="text-emerald-100 text-sm">Lv.{level}</p>
+        <div className="mt-3">
+          <Progress value={progress} className="h-2 bg-white/20" />
+          <p className="text-xs mt-1 text-emerald-100">다음 레벨까지 {(remaining / 10000).toFixed(0)}만원</p>
+        </div>
+      </div>
+      
+      <div className="mt-4 p-3 bg-white/10 rounded-lg text-xs space-y-1">
+        <p className="font-semibold mb-2 flex items-center gap-1"><Trophy className="w-3 h-3" /> 레벨 구간</p>
+        <p>Lv.1: 0~100만원</p>
+        <p>Lv.2: 100~300만원</p>
+        <p>Lv.3: 300~500만원</p>
+        <p>Lv.4: 500~1,000만원</p>
+        <p>Lv.5: 1,000만원 달성!</p>
+      </div>
+    </Card>
+  );
+}
+
+function PendingReceiveCard({ pending, tokens, user }: { pending: number; tokens: Token[] | undefined; user: any }) {
+  const acceptToken = useAcceptToken();
   const { toast } = useToast();
   
-  const otherUsers = allUsers?.filter(u => u.id !== user?.id) || [];
+  const userIdentifiers = user ? [
+    user.firstName,
+    user.email,
+    user.id,
+    `${user.firstName} ${user.lastName}`.trim()
+  ].filter(Boolean) : [];
   
-  const form = useForm<InsertToken>({
-    resolver: zodResolver(insertTokenSchema),
-    defaultValues: {
-      fromUserId: user?.id || "",
-      toUserId: "",
-      category: "growth",
-      message: ""
-    }
-  });
+  const isMe = (name: string | null | undefined) => 
+    name && userIdentifiers.some(id => id?.toLowerCase() === name.toLowerCase());
+  
+  const pendingTokens = tokens?.filter(
+    (t: Token) => (isMe(t.receiverName) || t.toUserId === user?.id) && t.status === "pending"
+  ) || [];
 
-  const onSubmit = (data: InsertToken) => {
-    createToken.mutate({ ...data, fromUserId: user!.id }, {
-      onSuccess: () => {
-        toast({ title: "전송 완료!", description: "동료에게 마음을 전했습니다." });
-        onOpenChange(false);
-        form.reset();
-      },
-      onError: () => {
-        toast({ title: "전송 실패", description: "잠시 후 다시 시도해주세요.", variant: "destructive" });
-      }
+  const handleAcceptAll = () => {
+    pendingTokens.forEach((t: Token) => {
+      acceptToken.mutate(t.id, {
+        onSuccess: () => toast({ title: "수령 완료!", description: "감사하며 받았습니다." }),
+      });
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button className="rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20">
-          토큰 보내기
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="glass border-white/20 sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>동료 칭찬하기</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">받는 사람</label>
-            <Select onValueChange={(v) => form.setValue("toUserId", v)} disabled={usersLoading}>
-              <SelectTrigger className="rounded-xl bg-white/50 dark:bg-black/20" data-testid="select-recipient">
-                <SelectValue placeholder={usersLoading ? "로딩 중..." : "동료를 선택하세요"} />
-              </SelectTrigger>
-              <SelectContent>
-                {usersLoading ? (
-                  <div className="p-2 text-sm text-muted-foreground animate-pulse">사용자 목록 로딩 중...</div>
-                ) : otherUsers.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground">다른 사용자가 없습니다</div>
-                ) : (
-                  otherUsers.map(u => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.firstName} {u.lastName} {u.email ? `(${u.email})` : ""}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium">카테고리</label>
-            <Select onValueChange={(v) => form.setValue("category", v)} defaultValue="growth">
-              <SelectTrigger className="rounded-xl bg-white/50 dark:bg-black/20" data-testid="select-category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="growth">성장 (Growth)</SelectItem>
-                <SelectItem value="influence">영향력 (Influence)</SelectItem>
-                <SelectItem value="execution">실행력 (Execution)</SelectItem>
-                <SelectItem value="camaraderie">전우애 (Camaraderie)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+    <Card className="p-6 bg-gradient-to-br from-pink-400 to-rose-500 text-white overflow-visible">
+      <div className="text-center">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Gift className="w-5 h-5" />
+          <span className="font-semibold">받기 대기</span>
+        </div>
+        <p className="text-4xl font-bold">{(pending / 10000).toFixed(0)}만원</p>
+        <p className="text-pink-100 text-sm mt-1">승인을 기다리는 중입니다</p>
+        {pendingTokens.length > 0 && (
+          <Button 
+            onClick={handleAcceptAll}
+            className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white"
+            disabled={acceptToken.isPending}
+            data-testid="button-accept-all"
+          >
+            <Heart className="w-4 h-4 mr-2" />
+            전체 한번에 받기
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">메시지</label>
-            <Input 
-              {...form.register("message")} 
-              placeholder="어떤 점이 훌륭했나요?" 
-              className="rounded-xl bg-white/50 dark:bg-black/20" 
-              data-testid="input-message"
+function RecognizeValueForm({ user }: { user: any }) {
+  const { data: batchMembers, isLoading: membersLoading } = useAllBatchMembers();
+  const createToken = useCreateToken();
+  const { toast } = useToast();
+  
+  const [recipient, setRecipient] = useState("");
+  const [amount, setAmount] = useState<number | null>(null);
+  const [customAmount, setCustomAmount] = useState("");
+  const [category, setCategory] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
+
+  const handleSubmit = () => {
+    const finalAmount = amount || Number(customAmount) * 10000;
+    if (!recipient || !finalAmount || !category) {
+      toast({ title: "입력 확인", description: "받는 사람, 금액, 가치 카테고리를 모두 선택해주세요.", variant: "destructive" });
+      return;
+    }
+
+    const message = category === "custom" ? customMessage : VALUE_CATEGORIES.find(c => c.value === category)?.label || "";
+    
+    createToken.mutate({
+      fromUserId: user?.id || "",
+      toUserId: recipient,
+      receiverName: recipient,
+      senderName: user?.firstName || user?.email || "Unknown",
+      amount: finalAmount,
+      category,
+      message,
+      status: "pending",
+    }, {
+      onSuccess: () => {
+        toast({ title: "가치 인정 완료!", description: `${recipient}님에게 ${(finalAmount / 10000).toFixed(0)}만원 가치를 인정했습니다.` });
+        setRecipient("");
+        setAmount(null);
+        setCustomAmount("");
+        setCategory("");
+        setCustomMessage("");
+      },
+    });
+  };
+
+  return (
+    <Card className="p-6">
+      <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-amber-600">
+        <Gift className="w-5 h-5" /> 가치 인정하기
+      </h3>
+      
+      <div className="space-y-6">
+        <div>
+          <Label className="text-sm font-medium mb-2 block">누구의 가치를 인정하시나요?</Label>
+          <Select value={recipient} onValueChange={setRecipient}>
+            <SelectTrigger data-testid="select-recipient" className="bg-muted/30">
+              <SelectValue placeholder="선택하세요" />
+            </SelectTrigger>
+            <SelectContent>
+              {membersLoading ? (
+                <div className="p-2 text-sm text-muted-foreground">로딩 중...</div>
+              ) : batchMembers && batchMembers.length > 0 ? (
+                batchMembers.map((member) => (
+                  <SelectItem key={member.id} value={member.name}>
+                    {member.name} {member.email ? `(${member.email})` : ""}
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="p-2 text-sm text-muted-foreground">기수관리에서 멤버를 추가하세요</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-3 block">금액 선택 (만원)</Label>
+          <div className="flex flex-wrap gap-2">
+            {AMOUNT_OPTIONS.map((opt) => (
+              <Button
+                key={opt.value}
+                type="button"
+                variant={amount === opt.value ? "default" : "outline"}
+                onClick={() => { setAmount(opt.value); setCustomAmount(""); }}
+                className={amount === opt.value ? "bg-amber-500 hover:bg-amber-600" : ""}
+                data-testid={`button-amount-${opt.value}`}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-3">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+              <Coins className="w-3 h-3" /> 또는 직접 입력 (1건당 최대 10만원)
+            </Label>
+            <Input
+              type="number"
+              placeholder="금액 입력 (예: 7)"
+              value={customAmount}
+              onChange={(e) => { setCustomAmount(e.target.value); setAmount(null); }}
+              className="bg-muted/30"
+              max={10}
+              data-testid="input-custom-amount"
             />
           </div>
+        </div>
 
-          <Button 
-            type="submit" 
-            className="w-full rounded-xl mt-2 bg-amber-500 hover:bg-amber-600" 
-            disabled={createToken.isPending}
-            data-testid="button-send-token"
+        <div>
+          <Label className="text-sm font-medium mb-3 block flex items-center gap-1">
+            <Sparkles className="w-4 h-4 text-amber-500" /> 어떤 가치였나요? (선택)
+          </Label>
+          <RadioGroup value={category} onValueChange={setCategory} className="space-y-3">
+            {VALUE_CATEGORIES.map((cat) => (
+              <div key={cat.value} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
+                <RadioGroupItem value={cat.value} id={cat.value} data-testid={`radio-category-${cat.value}`} />
+                <Label htmlFor={cat.value} className="flex-1 cursor-pointer flex items-center gap-2">
+                  <cat.icon className="w-4 h-4 text-amber-500" />
+                  {cat.label}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+          
+          {category === "custom" && (
+            <div className="mt-3">
+              <Textarea
+                placeholder="구체적으로 어떤 가치였는지 적어주세요..."
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                className="min-h-[100px] bg-muted/30"
+                data-testid="textarea-custom-message"
+              />
+            </div>
+          )}
+        </div>
+
+        <Button 
+          onClick={handleSubmit}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-white py-6 text-lg"
+          disabled={createToken.isPending}
+          data-testid="button-send-token"
+        >
+          <Coins className="w-5 h-5 mr-2" />
+          {createToken.isPending ? "전송 중..." : "가치 인정하기"}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function RealtimeActivityFeed({ tokens }: { tokens: Token[] | undefined }) {
+  const recentTokens = tokens?.slice(0, 5) || [];
+
+  return (
+    <Card className="p-4">
+      <h3 className="text-sm font-bold flex items-center gap-2 mb-3 text-blue-600">
+        <Sparkles className="w-4 h-4" /> 실시간 활동
+      </h3>
+      <ScrollArea className="h-[200px]">
+        <div className="space-y-2">
+          {recentTokens.map((token: Token) => (
+            <div key={token.id} className="p-2 bg-muted/30 rounded-lg text-xs">
+              <div className="flex justify-between items-start">
+                <span>
+                  <span className="font-semibold">{token.senderName}</span>
+                  <span className="text-muted-foreground">: {token.receiverName}님께 받은 {(token.amount / 10000).toFixed(0)}만원 우와!</span>
+                </span>
+              </div>
+              <p className="text-muted-foreground mt-1">{format(new Date(token.createdAt), "HH:mm")}</p>
+            </div>
+          ))}
+          {recentTokens.length === 0 && (
+            <p className="text-center text-muted-foreground text-sm py-4">아직 활동이 없습니다</p>
+          )}
+        </div>
+      </ScrollArea>
+    </Card>
+  );
+}
+
+function LeaderboardCard({ leaderboard, userName }: { leaderboard: { name: string; amount: number; rank: number }[]; userName?: string | null }) {
+  const [tab, setTab] = useState<"weekly" | "monthly" | "cumulative">("cumulative");
+
+  return (
+    <Card className="p-4">
+      <h3 className="text-sm font-bold flex items-center gap-2 mb-3 text-amber-600">
+        <Trophy className="w-4 h-4" /> 기여 순위
+      </h3>
+      <div className="flex gap-1 mb-3">
+        {[
+          { key: "weekly", label: "주간" },
+          { key: "monthly", label: "월간" },
+          { key: "cumulative", label: "누적" },
+        ].map((t) => (
+          <Button
+            key={t.key}
+            size="sm"
+            variant={tab === t.key ? "default" : "ghost"}
+            onClick={() => setTab(t.key as any)}
+            className={tab === t.key ? "bg-amber-500 hover:bg-amber-600 text-xs" : "text-xs"}
+            data-testid={`button-tab-${t.key}`}
           >
-            {createToken.isPending ? "전송 중..." : "토큰 보내기"}
+            {t.label}
           </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+        ))}
+      </div>
+      <ScrollArea className="h-[200px]">
+        <div className="space-y-2">
+          {leaderboard.map((entry) => (
+            <div 
+              key={entry.name} 
+              className={`flex items-center justify-between p-2 rounded-lg ${
+                entry.name === userName ? "bg-amber-100 dark:bg-amber-900/30" : "bg-muted/30"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  entry.rank === 1 ? "bg-amber-400 text-white" :
+                  entry.rank === 2 ? "bg-slate-300 text-slate-700" :
+                  entry.rank === 3 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
+                }`}>
+                  {entry.rank <= 3 ? <Trophy className="w-3 h-3" /> : entry.rank}
+                </span>
+                <span className="font-medium text-sm">{entry.name} {entry.name === userName && "(나)"}</span>
+              </div>
+              <span className="font-mono font-bold text-amber-600 text-sm">{(entry.amount / 10000).toFixed(0)}만원</span>
+            </div>
+          ))}
+          {leaderboard.length === 0 && (
+            <p className="text-center text-muted-foreground text-sm py-4">아직 기록이 없습니다</p>
+          )}
+        </div>
+      </ScrollArea>
+    </Card>
+  );
+}
+
+function ReceivedStatsCard({ stats }: { stats: any }) {
+  const dailyGoal = 100000;
+  const weeklyGoal = 700000;
+  const dailyProgress = Math.min((stats.today / dailyGoal) * 100, 100);
+  const weeklyProgress = Math.min((stats.thisWeek / weeklyGoal) * 100, 100);
+
+  return (
+    <Card className="p-6">
+      <h3 className="text-lg font-bold flex items-center gap-2 mb-4 text-blue-600">
+        <TrendingUp className="w-5 h-5" /> 받은 가치 통계
+      </h3>
+      
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="text-center p-4 bg-muted/30 rounded-lg">
+          <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Clock className="w-3 h-3" /> 오늘</p>
+          <p className="text-2xl font-bold text-blue-600">{(stats.today / 10000).toFixed(0)}만</p>
+        </div>
+        <div className="text-center p-4 bg-muted/30 rounded-lg">
+          <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Target className="w-3 h-3" /> 이번주</p>
+          <p className="text-2xl font-bold text-emerald-600">{(stats.thisWeek / 10000).toFixed(0)}만</p>
+        </div>
+        <div className="text-center p-4 bg-muted/30 rounded-lg">
+          <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Trophy className="w-3 h-3" /> 시즌 누적</p>
+          <p className="text-2xl font-bold text-amber-600">{(stats.cumulative / 10000).toFixed(0)}만</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="font-semibold flex items-center gap-2 text-sm"><Target className="w-4 h-4 text-emerald-500" /> 이번주 미션</h4>
+        <div className="p-3 bg-muted/20 rounded-lg text-xs text-muted-foreground mb-3">
+          <p>기준: 일평균 10만원 x 7일 = 주 70만원 | 주 70만원 x 16주 = 시즌 1,120만원</p>
+        </div>
+        
+        <div className="space-y-1">
+          <div className="flex justify-between text-sm">
+            <span className="flex items-center gap-1"><Target className="w-3 h-3" /> 일일 최소 목표: 10만원</span>
+            <span className={dailyProgress >= 100 ? "text-emerald-600" : "text-amber-600"}>
+              {dailyProgress >= 100 ? "달성" : "미달성"}
+            </span>
+          </div>
+          <Progress value={dailyProgress} className="h-2" />
+        </div>
+        
+        <div className="space-y-1">
+          <div className="flex justify-between text-sm">
+            <span className="flex items-center gap-1"><Trophy className="w-3 h-3" /> 주간 최소 목표: 70만원</span>
+            <span className={weeklyProgress >= 100 ? "text-emerald-600" : "text-amber-600"}>
+              {weeklyProgress >= 100 ? "달성" : "미달성"}
+            </span>
+          </div>
+          <Progress value={weeklyProgress} className="h-2" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function GivenValueCard({ given }: { given: number }) {
+  return (
+    <Card className="p-6">
+      <h3 className="text-lg font-bold flex items-center gap-2 mb-4 text-rose-500">
+        <Heart className="w-5 h-5" /> 인정한 가치
+      </h3>
+      <div className="text-center py-8">
+        <p className="text-muted-foreground text-sm mb-2">총 인정한 가치</p>
+        <p className="text-5xl font-bold text-rose-500">{(given / 10000).toFixed(0)}만</p>
+      </div>
+    </Card>
   );
 }

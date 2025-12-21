@@ -55,7 +55,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/tokens',
       responses: {
-        200: z.array(z.custom<typeof tokens.$inferSelect & { senderName?: string, receiverName?: string }>()),
+        200: z.array(z.custom<typeof tokens.$inferSelect>()),
       },
     },
     create: {
@@ -65,6 +65,14 @@ export const api = {
       responses: {
         201: z.custom<typeof tokens.$inferSelect>(),
         400: errorSchemas.validation,
+      },
+    },
+    accept: {
+      method: 'POST' as const,
+      path: '/api/tokens/:id/accept',
+      responses: {
+        200: z.custom<typeof tokens.$inferSelect>(),
+        404: errorSchemas.notFound,
       },
     },
   },
@@ -136,6 +144,13 @@ export const api = {
     list: {
       method: 'GET' as const,
       path: '/api/folders/:folderId/members',
+      responses: {
+        200: z.array(z.custom<typeof batchMembers.$inferSelect>()),
+      },
+    },
+    listAll: {
+      method: 'GET' as const,
+      path: '/api/batch-members',
       responses: {
         200: z.array(z.custom<typeof batchMembers.$inferSelect>()),
       },

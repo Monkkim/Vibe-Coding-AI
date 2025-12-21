@@ -60,6 +60,29 @@ export async function registerRoutes(
     res.status(201).json(token);
   });
 
+  app.post(api.tokens.accept.path, isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    
+    const tokens = await storage.getTokens();
+    const targetToken = tokens.find(t => t.id === Number(req.params.id));
+    
+    if (!targetToken) {
+      return res.status(404).json({ message: "Token not found" });
+    }
+    
+    const userName = user.firstName || user.email || "";
+    if (targetToken.receiverName !== userName && targetToken.toUserId !== userId) {
+      return res.status(403).json({ message: "You can only accept tokens sent to you" });
+    }
+    
+    const token = await storage.acceptToken(Number(req.params.id));
+    res.json(token);
+  });
+
   // --- Leads ---
   app.get(api.leads.list.path, async (req, res) => {
     const leads = await storage.getLeads();
@@ -102,6 +125,11 @@ export async function registerRoutes(
   });
 
   // --- Batch Members ---
+  app.get(api.batchMembers.listAll.path, async (req, res) => {
+    const members = await storage.getAllBatchMembers();
+    res.json(members);
+  });
+
   app.get(api.batchMembers.list.path, async (req, res) => {
     const members = await storage.getBatchMembers(Number(req.params.folderId));
     res.json(members);
