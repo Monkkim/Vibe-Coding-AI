@@ -7,7 +7,8 @@ import {
   type Folder, type InsertFolder
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { IAuthStorage } from "./replit_integrations/auth/storage";
 
 export interface IStorage extends IAuthStorage {
@@ -29,6 +30,10 @@ export interface IStorage extends IAuthStorage {
   // Folders
   getFolders(): Promise<Folder[]>;
   createFolder(folder: InsertFolder): Promise<Folder>;
+  deleteFolder(id: number): Promise<void>;
+
+  // Users (for token sending)
+  getAllUsers(): Promise<Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -70,8 +75,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // --- Tokens ---
-  async getTokens(): Promise<Token[]> {
-    return await db.select().from(tokens).orderBy(desc(tokens.createdAt));
+  async getTokens(): Promise<(Token & { senderName: string | null, receiverName: string | null })[]> {
+    const senderAlias = alias(users, 'sender');
+    const receiverAlias = alias(users, 'receiver');
+    
+    const results = await db
+      .select({
+        id: tokens.id,
+        fromUserId: tokens.fromUserId,
+        toUserId: tokens.toUserId,
+        category: tokens.category,
+        message: tokens.message,
+        createdAt: tokens.createdAt,
+        senderName: sql<string | null>`COALESCE(${senderAlias.firstName} || ' ' || ${senderAlias.lastName}, ${senderAlias.firstName}, 'Unknown')`.as('senderName'),
+        receiverName: sql<string | null>`COALESCE(${receiverAlias.firstName} || ' ' || ${receiverAlias.lastName}, ${receiverAlias.firstName}, 'Unknown')`.as('receiverName'),
+      })
+      .from(tokens)
+      .leftJoin(senderAlias, eq(tokens.fromUserId, senderAlias.id))
+      .leftJoin(receiverAlias, eq(tokens.toUserId, receiverAlias.id))
+      .orderBy(desc(tokens.createdAt));
+    
+    return results;
   }
 
   async createToken(insertToken: InsertToken): Promise<Token> {
@@ -102,6 +126,20 @@ export class DatabaseStorage implements IStorage {
   async createFolder(insertFolder: InsertFolder): Promise<Folder> {
     const [folder] = await db.insert(folders).values(insertFolder).returning();
     return folder;
+  }
+
+  async deleteFolder(id: number): Promise<void> {
+    await db.delete(folders).where(eq(folders.id, id));
+  }
+
+  // --- Users ---
+  async getAllUsers(): Promise<Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>[]> {
+    return await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+    }).from(users);
   }
 }
 

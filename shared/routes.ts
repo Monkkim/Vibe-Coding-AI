@@ -109,6 +109,28 @@ export const api = {
         201: z.custom<typeof folders.$inferSelect>(),
       },
     },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/folders/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  users: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/users',
+      responses: {
+        200: z.array(z.object({
+          id: z.string(),
+          firstName: z.string().nullable(),
+          lastName: z.string().nullable(),
+          email: z.string().nullable(),
+        })),
+      },
+    },
   }
 };
 

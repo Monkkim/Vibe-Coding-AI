@@ -1,5 +1,6 @@
 import { useTokens, useCreateToken } from "@/hooks/use-tokens";
 import { useAuth } from "@/hooks/use-auth";
+import { useUsers } from "@/hooks/use-folders";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -114,24 +115,23 @@ export function TokenGame() {
 
 function GiveTokenDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (v: boolean) => void }) {
   const { user } = useAuth();
+  const { data: allUsers, isLoading: usersLoading } = useUsers();
   const createToken = useCreateToken();
   const { toast } = useToast();
   
-  // NOTE: For MVP, we use a simple text input for receiver ID or select from hardcoded list
-  // Ideally this would be a user search/select component
+  const otherUsers = allUsers?.filter(u => u.id !== user?.id) || [];
   
   const form = useForm<InsertToken>({
     resolver: zodResolver(insertTokenSchema),
     defaultValues: {
       fromUserId: user?.id || "",
-      toUserId: "", // To be filled
+      toUserId: "",
       category: "growth",
       message: ""
     }
   });
 
   const onSubmit = (data: InsertToken) => {
-    // In a real app, fromUserId is handled by backend session, but schema might require it
     createToken.mutate({ ...data, fromUserId: user!.id }, {
       onSuccess: () => {
         toast({ title: "전송 완료!", description: "동료에게 마음을 전했습니다." });
@@ -157,19 +157,31 @@ function GiveTokenDialog({ open, onOpenChange }: { open: boolean, onOpenChange: 
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">받는 사람 (User ID)</label>
-            <Input 
-              {...form.register("toUserId")} 
-              placeholder="상대방 ID를 입력하세요" 
-              className="rounded-xl bg-white/50" 
-            />
-            <p className="text-xs text-muted-foreground">Tip: 테스트용으로 다른 브라우저의 ID를 사용하세요.</p>
+            <label className="text-sm font-medium">받는 사람</label>
+            <Select onValueChange={(v) => form.setValue("toUserId", v)} disabled={usersLoading}>
+              <SelectTrigger className="rounded-xl bg-white/50 dark:bg-black/20" data-testid="select-recipient">
+                <SelectValue placeholder={usersLoading ? "로딩 중..." : "동료를 선택하세요"} />
+              </SelectTrigger>
+              <SelectContent>
+                {usersLoading ? (
+                  <div className="p-2 text-sm text-muted-foreground animate-pulse">사용자 목록 로딩 중...</div>
+                ) : otherUsers.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">다른 사용자가 없습니다</div>
+                ) : (
+                  otherUsers.map(u => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.firstName} {u.lastName} {u.email ? `(${u.email})` : ""}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="space-y-2">
             <label className="text-sm font-medium">카테고리</label>
             <Select onValueChange={(v) => form.setValue("category", v)} defaultValue="growth">
-              <SelectTrigger className="rounded-xl bg-white/50">
+              <SelectTrigger className="rounded-xl bg-white/50 dark:bg-black/20" data-testid="select-category">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -186,11 +198,17 @@ function GiveTokenDialog({ open, onOpenChange }: { open: boolean, onOpenChange: 
             <Input 
               {...form.register("message")} 
               placeholder="어떤 점이 훌륭했나요?" 
-              className="rounded-xl bg-white/50" 
+              className="rounded-xl bg-white/50 dark:bg-black/20" 
+              data-testid="input-message"
             />
           </div>
 
-          <Button type="submit" className="w-full rounded-xl mt-2 bg-amber-500 hover:bg-amber-600" disabled={createToken.isPending}>
+          <Button 
+            type="submit" 
+            className="w-full rounded-xl mt-2 bg-amber-500 hover:bg-amber-600" 
+            disabled={createToken.isPending}
+            data-testid="button-send-token"
+          >
             {createToken.isPending ? "전송 중..." : "토큰 보내기"}
           </Button>
         </form>

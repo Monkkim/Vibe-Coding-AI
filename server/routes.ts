@@ -90,6 +90,17 @@ export async function registerRoutes(
     res.status(201).json(folder);
   });
 
+  app.delete(api.folders.delete.path, async (req, res) => {
+    await storage.deleteFolder(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // --- Users (for token game) ---
+  app.get(api.users.list.path, isAuthenticated, async (req, res) => {
+    const users = await storage.getAllUsers();
+    res.json(users);
+  });
+
   // --- Seed Data (Check if empty and seed) ---
   await seedDatabase();
 

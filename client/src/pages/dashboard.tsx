@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useFolders, useCreateFolder } from "@/hooks/use-folders";
+import { useFolders, useCreateFolder, useDeleteFolder } from "@/hooks/use-folders";
 import { useJournals } from "@/hooks/use-journals";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CreateJournalDrawer } from "@/components/CreateJournalDrawer";
@@ -10,8 +10,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import { 
   Folder, 
+  FolderOpen,
   Settings, 
   LogOut, 
   Sparkles, 
@@ -19,7 +21,9 @@ import {
   ChevronRight,
   LayoutDashboard,
   Gem,
-  Plus
+  Plus,
+  Trash2,
+  Users
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,7 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<"crack" | "sales" | "token">("crack");
+  const [activeTab, setActiveTab] = useState<"crack" | "sales" | "token" | "batch">("crack");
 
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-amber-100">
@@ -36,14 +40,14 @@ export function Dashboard() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-        <header className="flex justify-between items-center mb-8">
+        <header className="flex justify-between items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
               Hello, {user?.firstName || "Viber"}
             </h1>
             <p className="text-muted-foreground">오늘도 한계를 돌파할 준비가 되셨나요?</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <CreateJournalDrawer />
             <ThemeToggle />
           </div>
@@ -56,11 +60,12 @@ export function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
-            className="w-full max-w-6xl mx-auto"
+            className="w-full max-w-7xl mx-auto"
           >
             {activeTab === "crack" && <CrackTimeSection />}
             {activeTab === "sales" && <SalesMachine />}
             {activeTab === "token" && <TokenGame />}
+            {activeTab === "batch" && <BatchManager />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -74,21 +79,20 @@ function Sidebar({
   onLogout,
   user 
 }: { 
-  setActiveTab: (v: "crack" | "sales" | "token") => void, 
+  setActiveTab: (v: "crack" | "sales" | "token" | "batch") => void, 
   activeTab: string,
   onLogout: () => void,
   user: any
 }) {
   const { data: folders } = useFolders();
-  const createFolder = useCreateFolder();
+  const deleteFolder = useDeleteFolder();
   const { toast } = useToast();
 
-  const handleCreateFolder = () => {
-    // Simple prompt for MVP
-    const name = prompt("새 기수(폴더) 이름:");
-    if (name) {
-      createFolder.mutate({ name, type: "batch" }, {
-        onSuccess: () => toast({ title: "폴더 생성됨" })
+  const handleDeleteFolder = (id: number, name: string) => {
+    if (confirm(`"${name}" 폴더를 삭제하시겠습니까?`)) {
+      deleteFolder.mutate(id, {
+        onSuccess: () => toast({ title: "폴더 삭제됨" }),
+        onError: () => toast({ title: "삭제 실패", variant: "destructive" })
       });
     }
   };
@@ -109,10 +113,10 @@ function Sidebar({
             onClick={() => setActiveTab("crack")}
           />
           <SidebarItem 
-            icon={<LayoutDashboard className="w-4 h-4" />} 
-            label="Sales Machine" 
-            active={activeTab === "sales"}
-            onClick={() => setActiveTab("sales")}
+            icon={<Users className="w-4 h-4" />} 
+            label="기수 관리" 
+            active={activeTab === "batch"}
+            onClick={() => setActiveTab("batch")}
           />
           <SidebarItem 
             icon={<Gem className="w-4 h-4" />} 
@@ -120,30 +124,43 @@ function Sidebar({
             active={activeTab === "token"}
             onClick={() => setActiveTab("token")}
           />
+          <SidebarItem 
+            icon={<LayoutDashboard className="w-4 h-4" />} 
+            label="Sales Machine" 
+            active={activeTab === "sales"}
+            onClick={() => setActiveTab("sales")}
+          />
         </nav>
       </div>
 
       <Separator className="bg-border/50" />
 
       <ScrollArea className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-2">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Batches
           </h3>
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={handleCreateFolder}>
-            <Plus className="h-3 w-3" />
-          </Button>
         </div>
         <div className="space-y-1">
           {folders?.map(folder => (
-            <Button 
+            <div 
               key={folder.id} 
-              variant="ghost" 
-              className="w-full justify-start text-sm font-normal text-muted-foreground hover:text-foreground"
+              className="group flex items-center justify-between w-full text-sm font-normal text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-lg px-2 py-2 transition-colors"
             >
-              <Folder className="w-4 h-4 mr-2" />
-              {folder.name}
-            </Button>
+              <div className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer" onClick={() => setActiveTab("batch")}>
+                <FolderOpen className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{folder.name}</span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => handleDeleteFolder(folder.id, folder.name)}
+                data-testid={`button-delete-folder-${folder.id}`}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
           ))}
           {folders?.length === 0 && (
             <p className="text-xs text-muted-foreground/50 italic px-2">폴더가 없습니다.</p>
@@ -165,6 +182,7 @@ function Sidebar({
           variant="outline" 
           className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
           onClick={onLogout}
+          data-testid="button-logout"
         >
           <LogOut className="w-4 h-4 mr-2" /> 로그아웃
         </Button>
@@ -291,6 +309,178 @@ function CrackTimeSection() {
               </div>
               <h3 className="text-xl font-semibold mb-2">아직 지도가 없습니다</h3>
               <p>좌측에 고민을 입력하여<br/>성장의 실마리를 찾아보세요.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BatchManager() {
+  const { data: folders } = useFolders();
+  const { data: journalsData, isLoading: journalsLoading } = useJournals();
+  const createFolder = useCreateFolder();
+  const deleteFolder = useDeleteFolder();
+  const { toast } = useToast();
+  const [selectedJournal, setSelectedJournal] = useState<{
+    id: number;
+    title: string;
+    content: string;
+    category: string;
+    createdAt: Date;
+  } | null>(null);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) {
+      toast({ title: "폴더 이름을 입력하세요", variant: "destructive" });
+      return;
+    }
+    createFolder.mutate({ name: newFolderName, type: "batch" }, {
+      onSuccess: () => {
+        toast({ title: "기수 생성 완료" });
+        setNewFolderName("");
+      },
+      onError: () => toast({ title: "생성 실패", variant: "destructive" })
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold font-display flex items-center gap-2">
+            <Users className="text-blue-500" />
+            기수 관리
+          </h2>
+          <p className="text-muted-foreground text-sm">기수별 폴더와 수강생 저널을 관리합니다.</p>
+        </div>
+        
+        <div className="flex items-center gap-2 flex-wrap">
+          <Input 
+            placeholder="새 기수 이름" 
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            className="w-40 rounded-xl bg-white/50 dark:bg-black/20"
+            data-testid="input-new-folder"
+          />
+          <Button 
+            onClick={handleCreateFolder}
+            disabled={createFolder.isPending}
+            className="rounded-xl bg-blue-500 hover:bg-blue-600"
+            data-testid="button-create-folder"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            기수 추가
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Folders Section */}
+        <div className="lg:col-span-1 space-y-4">
+          <h3 className="font-semibold text-muted-foreground text-sm px-2">기수 목록</h3>
+          <div className="space-y-2">
+            {folders?.map(folder => (
+              <Card 
+                key={folder.id} 
+                className="glass-card rounded-2xl p-4 flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                    <FolderOpen className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{folder.name}</p>
+                    <p className="text-xs text-muted-foreground">{folder.type}</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    if (confirm(`"${folder.name}"를 삭제하시겠습니까?`)) {
+                      deleteFolder.mutate(folder.id, {
+                        onSuccess: () => toast({ title: "삭제됨" })
+                      });
+                    }
+                  }}
+                  data-testid={`button-delete-batch-${folder.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </Card>
+            ))}
+            {folders?.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <FolderOpen className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                <p>아직 기수가 없습니다.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Journals Section */}
+        <div className="lg:col-span-1 space-y-4">
+          <h3 className="font-semibold text-muted-foreground text-sm px-2">아침 저널링 목록</h3>
+          <ScrollArea className="h-[500px]">
+            <div className="space-y-2 pr-2">
+              {journalsLoading && <p className="text-center text-muted-foreground animate-pulse">로딩 중...</p>}
+              {journalsData?.map(journal => (
+                <Card 
+                  key={journal.id} 
+                  className={`glass-card rounded-2xl p-4 cursor-pointer transition-all hover:shadow-lg ${
+                    selectedJournal?.id === journal.id ? 'ring-2 ring-primary' : ''
+                  }`}
+                  onClick={() => setSelectedJournal(journal)}
+                  data-testid={`card-journal-${journal.id}`}
+                >
+                  <p className="font-medium truncate">{journal.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(journal.createdAt).toLocaleDateString('ko-KR')}
+                  </p>
+                </Card>
+              ))}
+              {journalsData?.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>아직 저널이 없습니다.</p>
+                  <p className="text-sm">상단의 '기록하기' 버튼을 눌러 시작하세요.</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Detail Drawer */}
+        <div className="lg:col-span-1">
+          <h3 className="font-semibold text-muted-foreground text-sm px-2 mb-4">저널 상세</h3>
+          {selectedJournal ? (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="glass-card rounded-3xl p-6 border-l-4 border-l-primary"
+            >
+              <div className="flex items-center justify-between mb-4 gap-2">
+                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                  #{selectedJournal.category}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(selectedJournal.createdAt).toLocaleString('ko-KR')}
+                </span>
+              </div>
+              <h3 className="text-xl font-bold mb-4">{selectedJournal.title}</h3>
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <p className="whitespace-pre-wrap text-foreground/80 leading-relaxed">
+                  {selectedJournal.content}
+                </p>
+              </div>
+            </motion.div>
+          ) : (
+            <div className="h-[400px] border-2 border-dashed border-border/50 rounded-3xl flex flex-col items-center justify-center text-muted-foreground text-center p-6">
+              <MapIcon className="w-12 h-12 mb-4 opacity-30" />
+              <p>저널을 선택하면<br/>상세 내용이 여기에 표시됩니다.</p>
             </div>
           )}
         </div>

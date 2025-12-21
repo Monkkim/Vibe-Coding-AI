@@ -1,21 +1,23 @@
 import { useAuth } from "@/hooks/use-auth";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Gem, ArrowRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useEffect } from "react";
 
 export function Landing() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
-  if (isLoading) return null;
+  useEffect(() => {
+    if (user && !isLoading) {
+      setLocation("/dashboard");
+    }
+  }, [user, isLoading, setLocation]);
 
-  // Redirect if already logged in (optional, but typical for dashboard apps)
-  if (user) {
-    setLocation("/dashboard");
-    return null;
-  }
+  if (isLoading) return null;
+  if (user) return null;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background relative overflow-hidden">
