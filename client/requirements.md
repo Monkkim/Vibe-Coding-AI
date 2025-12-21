@@ -4,6 +4,10 @@ lucide-react | Beautiful icons
 clsx | Utility for constructing className strings conditionally
 tailwind-merge | Utility for merging Tailwind CSS classes
 date-fns | Date formatting
+react-hook-form | Form handling
+zod | Schema validation
+@hookform/resolvers | Zod resolver for react-hook-form
+recharts | Charts for CRM and Token Game
 
 ## Notes
 Tailwind Config - extend fontFamily:

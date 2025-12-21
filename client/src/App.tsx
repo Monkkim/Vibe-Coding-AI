@@ -11,12 +11,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
-      {/* Dashboard handles its own sub-routes via nested router/switch logic if needed, 
-          but Wouter flat routes are often cleaner. 
-          Here we route /dashboard/* to the Dashboard layout component 
-          which then renders sub-components based on location */}
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/dashboard/:subpage" component={Dashboard} />
+      {/* Sub-routes handled inside Dashboard or just redirect to main dashboard for MVP */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -26,8 +22,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
         <Router />
+        <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
   );

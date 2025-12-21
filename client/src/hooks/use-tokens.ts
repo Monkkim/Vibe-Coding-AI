@@ -1,14 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
-import { type InsertToken } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
+import { api, type InsertToken } from "@shared/routes";
 
 export function useTokens() {
   return useQuery({
     queryKey: [api.tokens.list.path],
     queryFn: async () => {
       const res = await fetch(api.tokens.list.path, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch tokens");
+      if (!res.ok) throw new Error("토큰 목록을 불러오는데 실패했습니다.");
       return api.tokens.list.responses[200].parse(await res.json());
     },
   });
@@ -16,8 +14,6 @@ export function useTokens() {
 
 export function useCreateToken() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-
   return useMutation({
     mutationFn: async (data: InsertToken) => {
       const res = await fetch(api.tokens.create.path, {
@@ -26,12 +22,9 @@ export function useCreateToken() {
         body: JSON.stringify(data),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to create token");
+      if (!res.ok) throw new Error("토큰 발행에 실패했습니다.");
       return api.tokens.create.responses[201].parse(await res.json());
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.tokens.list.path] });
-      toast({ title: "Token awarded!", description: "Recognition sent successfully." });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.tokens.list.path] }),
   });
 }

@@ -99,15 +99,15 @@ export async function registerRoutes(
 async function seedDatabase() {
   const existingLeads = await storage.getLeads();
   if (existingLeads.length === 0) {
-    await storage.createLead({ name: "Alice Johnson", status: "new", value: 1000 });
-    await storage.createLead({ name: "Bob Smith", status: "consulting", value: 2500 });
-    await storage.createLead({ name: "Charlie Brown", status: "closing", value: 5000 });
-    await storage.createLead({ name: "Diana Prince", status: "registered", value: 10000 });
+    await storage.createLead({ name: "김철수", status: "new", value: 1000 });
+    await storage.createLead({ name: "이영희", status: "consulting", value: 2500 });
+    await storage.createLead({ name: "박지성", status: "closing", value: 5000 });
+    await storage.createLead({ name: "최동원", status: "registered", value: 10000 });
   }
 
   const existingFolders = await storage.getFolders();
   if (existingFolders.length === 0) {
-    await storage.createFolder({ name: "AG 42", type: "batch" });
-    await storage.createFolder({ name: "AG 43", type: "batch" });
+    await storage.createFolder({ name: "AG 42기", type: "batch" });
+    await storage.createFolder({ name: "AG 43기", type: "batch" });
   }
 }
