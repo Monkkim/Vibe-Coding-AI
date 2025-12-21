@@ -70,23 +70,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // --- Tokens ---
-  async getTokens(): Promise<(Token & { senderName: string | null, receiverName: string | null })[]> {
-    // Join with users to get names
-    const result = await db.select({
-      token: tokens,
-      sender: { firstName: users.firstName, lastName: users.lastName },
-      receiver: { firstName: users.firstName, lastName: users.lastName }
-    })
-    .from(tokens)
-    .leftJoin(users, eq(tokens.fromUserId, users.id))
-    .leftJoin(users, eq(tokens.toUserId, users.id)) // Self-join for receiver
-    .orderBy(desc(tokens.createdAt));
-
-    return result.map(r => ({
-      ...r.token,
-      senderName: r.sender ? `${r.sender.firstName} ${r.sender.lastName}` : "Unknown",
-      receiverName: r.receiver ? `${r.receiver.firstName} ${r.receiver.lastName}` : "Unknown"
-    }));
+  async getTokens(): Promise<Token[]> {
+    return await db.select().from(tokens).orderBy(desc(tokens.createdAt));
   }
 
   async createToken(insertToken: InsertToken): Promise<Token> {
