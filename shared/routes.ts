@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertJournalSchema, insertTokenSchema, insertLeadSchema, insertFolderSchema, journals, tokens, leads, folders } from './schema';
+import { insertJournalSchema, insertTokenSchema, insertLeadSchema, insertFolderSchema, insertBatchMemberSchema, journals, tokens, leads, folders, batchMembers } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -131,7 +131,41 @@ export const api = {
         })),
       },
     },
-  }
+  },
+  batchMembers: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/folders/:folderId/members',
+      responses: {
+        200: z.array(z.custom<typeof batchMembers.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/folders/:folderId/members',
+      input: insertBatchMemberSchema,
+      responses: {
+        201: z.custom<typeof batchMembers.$inferSelect>(),
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/batch-members/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  memberJournals: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/batch-members/:memberId/journals',
+      responses: {
+        200: z.array(z.custom<typeof journals.$inferSelect>()),
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

@@ -1,29 +1,28 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useFolders, useCreateFolder, useDeleteFolder } from "@/hooks/use-folders";
-import { useJournals } from "@/hooks/use-journals";
+import { useFolders, useCreateFolder, useDeleteFolder, useBatchMembers, useCreateBatchMember, useDeleteBatchMember, useMemberJournals } from "@/hooks/use-folders";
+import { useCreateJournal } from "@/hooks/use-journals";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { CreateJournalDrawer } from "@/components/CreateJournalDrawer";
-import { SalesMachine } from "@/components/SalesMachine";
 import { TokenGame } from "@/components/TokenGame";
 import { useCrackTime } from "@/hooks/use-ai-chat";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { 
-  Folder, 
   FolderOpen,
-  Settings, 
   LogOut, 
   Sparkles, 
   Map as MapIcon, 
   ChevronRight,
-  LayoutDashboard,
   Gem,
   Plus,
   Trash2,
-  Users
+  Users,
+  UserPlus,
+  ArrowLeft,
+  BookOpen
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<"crack" | "sales" | "token" | "batch">("crack");
+  const [activeTab, setActiveTab] = useState<"crack" | "token" | "batch">("crack");
 
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-amber-100">
@@ -47,10 +46,7 @@ export function Dashboard() {
             </h1>
             <p className="text-muted-foreground">오늘도 한계를 돌파할 준비가 되셨나요?</p>
           </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            <CreateJournalDrawer />
-            <ThemeToggle />
-          </div>
+          <ThemeToggle />
         </header>
 
         <AnimatePresence mode="wait">
@@ -63,7 +59,6 @@ export function Dashboard() {
             className="w-full max-w-7xl mx-auto"
           >
             {activeTab === "crack" && <CrackTimeSection />}
-            {activeTab === "sales" && <SalesMachine />}
             {activeTab === "token" && <TokenGame />}
             {activeTab === "batch" && <BatchManager />}
           </motion.div>
@@ -79,24 +74,11 @@ function Sidebar({
   onLogout,
   user 
 }: { 
-  setActiveTab: (v: "crack" | "sales" | "token" | "batch") => void, 
+  setActiveTab: (v: "crack" | "token" | "batch") => void, 
   activeTab: string,
   onLogout: () => void,
   user: any
 }) {
-  const { data: folders } = useFolders();
-  const deleteFolder = useDeleteFolder();
-  const { toast } = useToast();
-
-  const handleDeleteFolder = (id: number, name: string) => {
-    if (confirm(`"${name}" 폴더를 삭제하시겠습니까?`)) {
-      deleteFolder.mutate(id, {
-        onSuccess: () => toast({ title: "폴더 삭제됨" }),
-        onError: () => toast({ title: "삭제 실패", variant: "destructive" })
-      });
-    }
-  };
-
   return (
     <aside className="w-64 glass border-r border-border hidden md:flex flex-col h-full z-10">
       <div className="p-6">
@@ -124,49 +106,10 @@ function Sidebar({
             active={activeTab === "token"}
             onClick={() => setActiveTab("token")}
           />
-          <SidebarItem 
-            icon={<LayoutDashboard className="w-4 h-4" />} 
-            label="Sales Machine" 
-            active={activeTab === "sales"}
-            onClick={() => setActiveTab("sales")}
-          />
         </nav>
       </div>
 
-      <Separator className="bg-border/50" />
-
-      <ScrollArea className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4 gap-2">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Batches
-          </h3>
-        </div>
-        <div className="space-y-1">
-          {folders?.map(folder => (
-            <div 
-              key={folder.id} 
-              className="group flex items-center justify-between w-full text-sm font-normal text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-lg px-2 py-2 transition-colors"
-            >
-              <div className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer" onClick={() => setActiveTab("batch")}>
-                <FolderOpen className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{folder.name}</span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => handleDeleteFolder(folder.id, folder.name)}
-                data-testid={`button-delete-folder-${folder.id}`}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
-          {folders?.length === 0 && (
-            <p className="text-xs text-muted-foreground/50 italic px-2">폴더가 없습니다.</p>
-          )}
-        </div>
-      </ScrollArea>
+      <div className="flex-1" />
 
       <div className="p-6 mt-auto border-t border-border/50">
         <div className="flex items-center gap-3 mb-4">
@@ -319,22 +262,31 @@ function CrackTimeSection() {
 
 function BatchManager() {
   const { data: folders } = useFolders();
-  const { data: journalsData, isLoading: journalsLoading } = useJournals();
   const createFolder = useCreateFolder();
   const deleteFolder = useDeleteFolder();
   const { toast } = useToast();
-  const [selectedJournal, setSelectedJournal] = useState<{
-    id: number;
-    title: string;
-    content: string;
-    category: string;
-    createdAt: Date;
-  } | null>(null);
+  const { user } = useAuth();
+  const createJournal = useCreateJournal();
+  
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+  const [selectedMemberName, setSelectedMemberName] = useState<string>("");
   const [newFolderName, setNewFolderName] = useState("");
+  const [newMemberName, setNewMemberName] = useState("");
+  const [journalTitle, setJournalTitle] = useState("");
+  const [journalContent, setJournalContent] = useState("");
+  const [showJournalForm, setShowJournalForm] = useState(false);
+  
+  const { data: members, isLoading: membersLoading } = useBatchMembers(selectedFolderId);
+  const createMember = useCreateBatchMember();
+  const deleteMember = useDeleteBatchMember();
+  const { data: memberJournals, isLoading: journalsLoading } = useMemberJournals(selectedMemberId);
+  
+  const selectedFolder = folders?.find(f => f.id === selectedFolderId);
 
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) {
-      toast({ title: "폴더 이름을 입력하세요", variant: "destructive" });
+      toast({ title: "기수 이름을 입력하세요", variant: "destructive" });
       return;
     }
     createFolder.mutate({ name: newFolderName, type: "batch" }, {
@@ -346,145 +298,315 @@ function BatchManager() {
     });
   };
 
+  const handleCreateMember = () => {
+    if (!newMemberName.trim() || !selectedFolderId) {
+      toast({ title: "멤버 이름을 입력하세요", variant: "destructive" });
+      return;
+    }
+    createMember.mutate({ folderId: selectedFolderId, data: { name: newMemberName } }, {
+      onSuccess: () => {
+        toast({ title: "멤버 추가됨" });
+        setNewMemberName("");
+      },
+      onError: () => toast({ title: "추가 실패", variant: "destructive" })
+    });
+  };
+
+  const handleCreateJournal = () => {
+    if (!journalTitle.trim() || !journalContent.trim() || !selectedMemberId || !user) {
+      toast({ title: "제목과 내용을 입력하세요", variant: "destructive" });
+      return;
+    }
+    createJournal.mutate({
+      title: journalTitle,
+      content: journalContent,
+      category: "morning",
+      userId: user.id,
+      memberId: selectedMemberId,
+    }, {
+      onSuccess: () => {
+        toast({ title: "저널 작성 완료" });
+        setJournalTitle("");
+        setJournalContent("");
+        setShowJournalForm(false);
+      },
+      onError: () => toast({ title: "저널 작성 실패", variant: "destructive" })
+    });
+  };
+
+  const handleSelectMember = (memberId: number, memberName: string) => {
+    setSelectedMemberId(memberId);
+    setSelectedMemberName(memberName);
+  };
+
+  const handleBack = () => {
+    if (selectedMemberId) {
+      setSelectedMemberId(null);
+      setSelectedMemberName("");
+      setShowJournalForm(false);
+    } else if (selectedFolderId) {
+      setSelectedFolderId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold font-display flex items-center gap-2">
-            <Users className="text-blue-500" />
-            기수 관리
-          </h2>
-          <p className="text-muted-foreground text-sm">기수별 폴더와 수강생 저널을 관리합니다.</p>
+        <div className="flex items-center gap-4">
+          {(selectedFolderId || selectedMemberId) && (
+            <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          )}
+          <div>
+            <h2 className="text-2xl font-bold font-display flex items-center gap-2">
+              <Users className="text-blue-500" />
+              {selectedMemberId ? `${selectedMemberName} 저널` : selectedFolder ? selectedFolder.name : "기수 관리"}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {selectedMemberId 
+                ? "이 멤버의 아침 저널링을 확인하고 작성합니다." 
+                : selectedFolder 
+                  ? "멤버를 클릭하여 저널을 작성하세요." 
+                  : "기수를 선택하면 멤버 목록이 표시됩니다."
+              }
+            </p>
+          </div>
         </div>
         
-        <div className="flex items-center gap-2 flex-wrap">
-          <Input 
-            placeholder="새 기수 이름" 
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            className="w-40 rounded-xl bg-white/50 dark:bg-black/20"
-            data-testid="input-new-folder"
-          />
+        {!selectedFolderId && !selectedMemberId && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Input 
+              placeholder="새 기수 이름" 
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              className="w-40 rounded-xl bg-white/50 dark:bg-black/20"
+              data-testid="input-new-folder"
+            />
+            <Button 
+              onClick={handleCreateFolder}
+              disabled={createFolder.isPending}
+              className="rounded-xl bg-blue-500"
+              data-testid="button-create-folder"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              기수 추가
+            </Button>
+          </div>
+        )}
+
+        {selectedFolderId && !selectedMemberId && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Input 
+              placeholder="새 멤버 이름" 
+              value={newMemberName}
+              onChange={(e) => setNewMemberName(e.target.value)}
+              className="w-40 rounded-xl bg-white/50 dark:bg-black/20"
+              data-testid="input-new-member"
+            />
+            <Button 
+              onClick={handleCreateMember}
+              disabled={createMember.isPending}
+              className="rounded-xl bg-green-500"
+              data-testid="button-add-member"
+            >
+              <UserPlus className="w-4 h-4 mr-1" />
+              멤버 추가
+            </Button>
+          </div>
+        )}
+
+        {selectedMemberId && !showJournalForm && (
           <Button 
-            onClick={handleCreateFolder}
-            disabled={createFolder.isPending}
-            className="rounded-xl bg-blue-500 hover:bg-blue-600"
-            data-testid="button-create-folder"
+            onClick={() => setShowJournalForm(true)}
+            className="rounded-xl bg-amber-500"
+            data-testid="button-write-journal"
           >
-            <Plus className="w-4 h-4 mr-1" />
-            기수 추가
+            <BookOpen className="w-4 h-4 mr-1" />
+            저널 작성
           </Button>
-        </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Folders Section */}
-        <div className="lg:col-span-1 space-y-4">
-          <h3 className="font-semibold text-muted-foreground text-sm px-2">기수 목록</h3>
-          <div className="space-y-2">
+      <AnimatePresence mode="wait">
+        {!selectedFolderId && (
+          <motion.div
+            key="folders"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
             {folders?.map(folder => (
               <Card 
                 key={folder.id} 
-                className="glass-card rounded-2xl p-4 flex items-center justify-between group"
+                className="glass-card rounded-2xl p-5 cursor-pointer group hover:shadow-lg transition-all"
+                onClick={() => setSelectedFolderId(folder.id)}
+                data-testid={`card-folder-${folder.id}`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                    <FolderOpen className="w-5 h-5 text-blue-500" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                      <FolderOpen className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-lg">{folder.name}</p>
+                      <p className="text-xs text-muted-foreground">클릭하여 멤버 보기</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{folder.name}</p>
-                    <p className="text-xs text-muted-foreground">{folder.type}</p>
-                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`"${folder.name}"를 삭제하시겠습니까?`)) {
+                        deleteFolder.mutate(folder.id, { onSuccess: () => toast({ title: "삭제됨" }) });
+                      }
+                    }}
+                    data-testid={`button-delete-folder-${folder.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => {
-                    if (confirm(`"${folder.name}"를 삭제하시겠습니까?`)) {
-                      deleteFolder.mutate(folder.id, {
-                        onSuccess: () => toast({ title: "삭제됨" })
-                      });
-                    }
-                  }}
-                  data-testid={`button-delete-batch-${folder.id}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </Card>
             ))}
             {folders?.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <FolderOpen className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                <p>아직 기수가 없습니다.</p>
+              <div className="col-span-full text-center py-16 text-muted-foreground">
+                <FolderOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p className="text-lg">아직 기수가 없습니다.</p>
+                <p className="text-sm">위에서 기수를 추가해보세요.</p>
               </div>
             )}
-          </div>
-        </div>
+          </motion.div>
+        )}
 
-        {/* Journals Section */}
-        <div className="lg:col-span-1 space-y-4">
-          <h3 className="font-semibold text-muted-foreground text-sm px-2">아침 저널링 목록</h3>
-          <ScrollArea className="h-[500px]">
-            <div className="space-y-2 pr-2">
+        {selectedFolderId && !selectedMemberId && (
+          <motion.div
+            key="members"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            {membersLoading && <p className="col-span-full text-center text-muted-foreground animate-pulse">로딩 중...</p>}
+            {members?.map(member => (
+              <Card 
+                key={member.id} 
+                className="glass-card rounded-2xl p-5 cursor-pointer group hover:shadow-lg transition-all"
+                onClick={() => handleSelectMember(member.id, member.name)}
+                data-testid={`card-member-${member.id}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                        {member.name[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-lg">{member.name}</p>
+                      <p className="text-xs text-muted-foreground">클릭하여 저널 보기</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`"${member.name}"를 삭제하시겠습니까?`) && selectedFolderId) {
+                        deleteMember.mutate({ id: member.id, folderId: selectedFolderId }, { onSuccess: () => toast({ title: "삭제됨" }) });
+                      }
+                    }}
+                    data-testid={`button-delete-member-${member.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+            {members?.length === 0 && !membersLoading && (
+              <div className="col-span-full text-center py-16 text-muted-foreground">
+                <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p className="text-lg">아직 멤버가 없습니다.</p>
+                <p className="text-sm">위에서 멤버를 추가해보세요.</p>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {selectedMemberId && (
+          <motion.div
+            key="journals"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            {showJournalForm && (
+              <Card className="glass-card rounded-2xl p-6 space-y-4">
+                <h3 className="font-bold text-lg">새 저널 작성</h3>
+                <Input 
+                  placeholder="제목" 
+                  value={journalTitle}
+                  onChange={(e) => setJournalTitle(e.target.value)}
+                  className="rounded-xl bg-white/50 dark:bg-black/20"
+                  data-testid="input-journal-title"
+                />
+                <Textarea 
+                  placeholder="오늘의 생각, 배움, 감사를 적어보세요..."
+                  value={journalContent}
+                  onChange={(e) => setJournalContent(e.target.value)}
+                  className="rounded-xl bg-white/50 dark:bg-black/20 min-h-[150px]"
+                  data-testid="input-journal-content"
+                />
+                <div className="flex gap-2 justify-end flex-wrap">
+                  <Button variant="outline" onClick={() => setShowJournalForm(false)}>취소</Button>
+                  <Button 
+                    onClick={handleCreateJournal} 
+                    disabled={createJournal.isPending}
+                    className="bg-amber-500"
+                    data-testid="button-submit-journal"
+                  >
+                    저장하기
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            <div className="space-y-4">
+              <h3 className="font-semibold text-muted-foreground text-sm">저널 목록</h3>
               {journalsLoading && <p className="text-center text-muted-foreground animate-pulse">로딩 중...</p>}
-              {journalsData?.map(journal => (
+              {memberJournals?.map(journal => (
                 <Card 
                   key={journal.id} 
-                  className={`glass-card rounded-2xl p-4 cursor-pointer transition-all hover:shadow-lg ${
-                    selectedJournal?.id === journal.id ? 'ring-2 ring-primary' : ''
-                  }`}
-                  onClick={() => setSelectedJournal(journal)}
+                  className="glass-card rounded-2xl p-5"
                   data-testid={`card-journal-${journal.id}`}
                 >
-                  <p className="font-medium truncate">{journal.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(journal.createdAt).toLocaleDateString('ko-KR')}
-                  </p>
+                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                    <span className="text-xs px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium">
+                      #{journal.category}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(journal.createdAt).toLocaleString('ko-KR')}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-lg mb-2">{journal.title}</h4>
+                  <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{journal.content}</p>
                 </Card>
               ))}
-              {journalsData?.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>아직 저널이 없습니다.</p>
-                  <p className="text-sm">상단의 '기록하기' 버튼을 눌러 시작하세요.</p>
+              {memberJournals?.length === 0 && !journalsLoading && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                  <p className="text-lg">아직 저널이 없습니다.</p>
+                  <p className="text-sm">위의 '저널 작성' 버튼을 눌러 시작하세요.</p>
                 </div>
               )}
             </div>
-          </ScrollArea>
-        </div>
-
-        {/* Detail Drawer */}
-        <div className="lg:col-span-1">
-          <h3 className="font-semibold text-muted-foreground text-sm px-2 mb-4">저널 상세</h3>
-          {selectedJournal ? (
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="glass-card rounded-3xl p-6 border-l-4 border-l-primary"
-            >
-              <div className="flex items-center justify-between mb-4 gap-2">
-                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                  #{selectedJournal.category}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(selectedJournal.createdAt).toLocaleString('ko-KR')}
-                </span>
-              </div>
-              <h3 className="text-xl font-bold mb-4">{selectedJournal.title}</h3>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="whitespace-pre-wrap text-foreground/80 leading-relaxed">
-                  {selectedJournal.content}
-                </p>
-              </div>
-            </motion.div>
-          ) : (
-            <div className="h-[400px] border-2 border-dashed border-border/50 rounded-3xl flex flex-col items-center justify-center text-muted-foreground text-center p-6">
-              <MapIcon className="w-12 h-12 mb-4 opacity-30" />
-              <p>저널을 선택하면<br/>상세 내용이 여기에 표시됩니다.</p>
-            </div>
-          )}
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

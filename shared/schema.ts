@@ -13,6 +13,7 @@ import { users } from "./models/auth";
 export const journals = pgTable("journals", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull(), // Links to users.id
+  memberId: integer("member_id"), // Links to batch_members.id (optional)
   title: text("title").notNull(),
   content: text("content").notNull(),
   category: text("category").notNull(), // 'tech', 'business', 'retrospective', 'etc'
@@ -69,6 +70,20 @@ export const insertFolderSchema = createInsertSchema(folders).omit({
   createdAt: true 
 });
 
+// === BATCH MEMBERS ===
+export const batchMembers = pgTable("batch_members", {
+  id: serial("id").primaryKey(),
+  folderId: integer("folder_id").notNull(), // Links to folders.id
+  name: text("name").notNull(),
+  email: text("email"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBatchMemberSchema = createInsertSchema(batchMembers).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
 // === RELATIONS ===
 export const journalsRelations = relations(journals, ({ one }) => ({
   author: one(users, {
@@ -102,3 +117,6 @@ export type InsertLead = z.infer<typeof insertLeadSchema>;
 
 export type Folder = typeof folders.$inferSelect;
 export type InsertFolder = z.infer<typeof insertFolderSchema>;
+
+export type BatchMember = typeof batchMembers.$inferSelect;
+export type InsertBatchMember = z.infer<typeof insertBatchMemberSchema>;

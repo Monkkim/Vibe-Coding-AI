@@ -1,10 +1,11 @@
 import { 
-  users, journals, tokens, leads, folders,
-  type User, type InsertUser,
+  users, journals, tokens, leads, folders, batchMembers,
+  type User,
   type Journal, type InsertJournal,
   type Token, type InsertToken,
   type Lead, type InsertLead,
-  type Folder, type InsertFolder
+  type Folder, type InsertFolder,
+  type BatchMember, type InsertBatchMember
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -31,6 +32,14 @@ export interface IStorage extends IAuthStorage {
   getFolders(): Promise<Folder[]>;
   createFolder(folder: InsertFolder): Promise<Folder>;
   deleteFolder(id: number): Promise<void>;
+
+  // Batch Members
+  getBatchMembers(folderId: number): Promise<BatchMember[]>;
+  createBatchMember(member: InsertBatchMember): Promise<BatchMember>;
+  deleteBatchMember(id: number): Promise<void>;
+  
+  // Journals by member
+  getJournalsByMember(memberId: number): Promise<Journal[]>;
 
   // Users (for token sending)
   getAllUsers(): Promise<Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>[]>;
@@ -129,7 +138,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteFolder(id: number): Promise<void> {
+    // Also delete all members in this folder
+    await db.delete(batchMembers).where(eq(batchMembers.folderId, id));
     await db.delete(folders).where(eq(folders.id, id));
+  }
+
+  // --- Batch Members ---
+  async getBatchMembers(folderId: number): Promise<BatchMember[]> {
+    return await db.select().from(batchMembers).where(eq(batchMembers.folderId, folderId)).orderBy(desc(batchMembers.createdAt));
+  }
+
+  async createBatchMember(insertMember: InsertBatchMember): Promise<BatchMember> {
+    const [member] = await db.insert(batchMembers).values(insertMember).returning();
+    return member;
+  }
+
+  async deleteBatchMember(id: number): Promise<void> {
+    await db.delete(batchMembers).where(eq(batchMembers.id, id));
+  }
+
+  // --- Journals by Member ---
+  async getJournalsByMember(memberId: number): Promise<Journal[]> {
+    return await db.select().from(journals).where(eq(journals.memberId, memberId)).orderBy(desc(journals.createdAt));
   }
 
   // --- Users ---

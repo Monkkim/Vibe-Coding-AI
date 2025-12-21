@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl, type InsertJournal } from "@shared/routes";
+import { api, buildUrl } from "@shared/routes";
+import type { InsertJournal } from "@shared/schema";
 
 export function useJournals() {
   return useQuery({
@@ -15,7 +16,7 @@ export function useJournals() {
 export function useCreateJournal() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: InsertJournal) => {
+    mutationFn: async (data: InsertJournal & { memberId?: number }) => {
       const res = await fetch(api.journals.create.path, {
         method: api.journals.create.method,
         headers: { "Content-Type": "application/json" },
@@ -25,7 +26,12 @@ export function useCreateJournal() {
       if (!res.ok) throw new Error("저널 생성에 실패했습니다.");
       return api.journals.create.responses[201].parse(await res.json());
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.journals.list.path] }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.journals.list.path] });
+      if (variables.memberId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/batch-members', variables.memberId, 'journals'] });
+      }
+    },
   });
 }
 

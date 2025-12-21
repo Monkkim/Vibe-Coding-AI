@@ -101,6 +101,32 @@ export async function registerRoutes(
     res.json(users);
   });
 
+  // --- Batch Members ---
+  app.get(api.batchMembers.list.path, async (req, res) => {
+    const members = await storage.getBatchMembers(Number(req.params.folderId));
+    res.json(members);
+  });
+
+  app.post(api.batchMembers.create.path, async (req, res) => {
+    const input = api.batchMembers.create.input.parse({
+      ...req.body,
+      folderId: Number(req.params.folderId)
+    });
+    const member = await storage.createBatchMember(input);
+    res.status(201).json(member);
+  });
+
+  app.delete(api.batchMembers.delete.path, async (req, res) => {
+    await storage.deleteBatchMember(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // --- Member Journals ---
+  app.get(api.memberJournals.list.path, async (req, res) => {
+    const journals = await storage.getJournalsByMember(Number(req.params.memberId));
+    res.json(journals);
+  });
+
   // --- Seed Data (Check if empty and seed) ---
   await seedDatabase();
 
