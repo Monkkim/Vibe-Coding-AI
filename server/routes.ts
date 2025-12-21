@@ -1,16 +1,113 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { api } from "@shared/routes";
+import { z } from "zod";
+import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { registerChatRoutes } from "./replit_integrations/chat";
+import { registerImageRoutes } from "./replit_integrations/image";
+import { isAuthenticated } from "./replit_integrations/auth";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  // 1. Setup Auth (Must be first)
+  await setupAuth(app);
+  registerAuthRoutes(app);
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  // 2. Setup AI (Chat & Image)
+  registerChatRoutes(app);
+  registerImageRoutes(app);
+
+  // 3. App Routes
+
+  // --- Journals ---
+  app.get(api.journals.list.path, isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const journals = await storage.getJournals(userId);
+    res.json(journals);
+  });
+
+  app.post(api.journals.create.path, isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const input = api.journals.create.input.parse({ ...req.body, userId }); // Force userId
+    const journal = await storage.createJournal(input);
+    res.status(201).json(journal);
+  });
+
+  app.put(api.journals.update.path, isAuthenticated, async (req, res) => {
+    const input = api.journals.update.input.parse(req.body);
+    const updated = await storage.updateJournal(Number(req.params.id), input);
+    res.json(updated);
+  });
+
+  app.delete(api.journals.delete.path, isAuthenticated, async (req, res) => {
+    await storage.deleteJournal(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // --- Tokens ---
+  app.get(api.tokens.list.path, async (req, res) => {
+    const tokens = await storage.getTokens();
+    res.json(tokens);
+  });
+
+  app.post(api.tokens.create.path, isAuthenticated, async (req: any, res) => {
+    const fromUserId = req.user.claims.sub;
+    const input = api.tokens.create.input.parse({ ...req.body, fromUserId });
+    const token = await storage.createToken(input);
+    res.status(201).json(token);
+  });
+
+  // --- Leads ---
+  app.get(api.leads.list.path, async (req, res) => {
+    const leads = await storage.getLeads();
+    res.json(leads);
+  });
+
+  app.post(api.leads.create.path, async (req, res) => {
+    const input = api.leads.create.input.parse(req.body);
+    const lead = await storage.createLead(input);
+    res.status(201).json(lead);
+  });
+
+  app.put(api.leads.update.path, async (req, res) => {
+    const input = api.leads.update.input.parse(req.body);
+    const lead = await storage.updateLead(Number(req.params.id), input);
+    res.json(lead);
+  });
+
+  // --- Folders ---
+  app.get(api.folders.list.path, async (req, res) => {
+    const folders = await storage.getFolders();
+    res.json(folders);
+  });
+
+  app.post(api.folders.create.path, async (req, res) => {
+    const input = api.folders.create.input.parse(req.body);
+    const folder = await storage.createFolder(input);
+    res.status(201).json(folder);
+  });
+
+  // --- Seed Data (Check if empty and seed) ---
+  await seedDatabase();
 
   return httpServer;
+}
+
+async function seedDatabase() {
+  const existingLeads = await storage.getLeads();
+  if (existingLeads.length === 0) {
+    await storage.createLead({ name: "Alice Johnson", status: "new", value: 1000 });
+    await storage.createLead({ name: "Bob Smith", status: "consulting", value: 2500 });
+    await storage.createLead({ name: "Charlie Brown", status: "closing", value: 5000 });
+    await storage.createLead({ name: "Diana Prince", status: "registered", value: 10000 });
+  }
+
+  const existingFolders = await storage.getFolders();
+  if (existingFolders.length === 0) {
+    await storage.createFolder({ name: "AG 42", type: "batch" });
+    await storage.createFolder({ name: "AG 43", type: "batch" });
+  }
 }
