@@ -55,11 +55,11 @@ export function Landing() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button 
               size="lg" 
-              className="h-14 px-8 rounded-full text-lg bg-foreground text-background hover:bg-foreground/90 shadow-2xl shadow-black/20 hover:scale-105 transition-all duration-300"
+              className="h-14 px-8 rounded-full text-lg bg-white/20 dark:bg-white/10 backdrop-blur-md border border-white/30 text-foreground hover:bg-white/30 dark:hover:bg-white/20 shadow-xl hover:scale-105 transition-all duration-300"
               asChild
             >
               <a href="/api/login">
-                [ 입장하기 ] <ArrowRight className="ml-2 w-5 h-5" />
+                입장하기 <ArrowRight className="ml-2 w-5 h-5" />
               </a>
             </Button>
           </div>
