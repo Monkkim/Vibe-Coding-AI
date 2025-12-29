@@ -85,7 +85,7 @@ function Sidebar({
       <div className="p-6">
         <div className="flex items-center gap-2 font-display font-bold text-xl text-primary mb-8">
           <Gem className="w-6 h-6" />
-          Vibe Coding
+          AGround
         </div>
 
         <nav className="space-y-2">

@@ -30,7 +30,7 @@ export function Landing() {
       <nav className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-10">
         <div className="flex items-center gap-2 font-display font-bold text-xl">
           <Gem className="text-amber-500" />
-          <span>Vibe Coding</span>
+          <span>AGround</span>
         </div>
         <ThemeToggle />
       </nav>
@@ -51,10 +51,6 @@ export function Landing() {
             <span className="text-amber-500">Limits.</span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
-            성장의 안개를 걷어내고, 동료와 함께<br className="hidden md:block" />
-            실행의 지도를 그려나가세요.
-          </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button 
@@ -71,7 +67,7 @@ export function Landing() {
       </main>
 
       <footer className="absolute bottom-6 text-sm text-muted-foreground/50 font-mono">
-        © 2024 Vibe Coding. All rights reserved.
+        © 2024 AGround. All rights reserved.
       </footer>
     </div>
   );
