@@ -421,6 +421,7 @@ function BatchManager() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [showFolderDialog, setShowFolderDialog] = useState(false);
+  const [showMemberDialog, setShowMemberDialog] = useState(false);
   
   const { data: members, isLoading: membersLoading } = useBatchMembers(selectedFolderId);
   const createMember = useCreateBatchMember();
@@ -595,25 +596,48 @@ function BatchManager() {
         </Dialog>
 
         {selectedFolderId && !selectedMemberId && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Input 
-              placeholder="새 멤버 이름" 
-              value={newMemberName}
-              onChange={(e) => setNewMemberName(e.target.value)}
-              className="w-40 rounded-xl bg-white/50 dark:bg-black/20"
-              data-testid="input-new-member"
-            />
-            <Button 
-              onClick={handleCreateMember}
-              disabled={createMember.isPending}
-              className="rounded-xl bg-green-500"
-              data-testid="button-add-member"
-            >
-              <UserPlus className="w-4 h-4 mr-1" />
-              멤버 추가
-            </Button>
-          </div>
+          <Button 
+            onClick={() => setShowMemberDialog(true)}
+            className="rounded-xl bg-green-500"
+            data-testid="button-open-member-dialog"
+          >
+            <UserPlus className="w-4 h-4 mr-1" />
+            멤버 추가
+          </Button>
         )}
+
+        <Dialog open={showMemberDialog} onOpenChange={setShowMemberDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>새 멤버 추가</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Input 
+                placeholder="멤버 이름을 입력하세요" 
+                value={newMemberName}
+                onChange={(e) => setNewMemberName(e.target.value)}
+                className="rounded-xl"
+                data-testid="input-new-member"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setShowMemberDialog(false)}>
+                취소
+              </Button>
+              <Button 
+                onClick={() => {
+                  handleCreateMember();
+                  setShowMemberDialog(false);
+                }}
+                disabled={createMember.isPending || !newMemberName.trim()}
+                className="bg-green-500"
+                data-testid="button-add-member"
+              >
+                추가하기
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {selectedMemberId && !showJournalForm && (
           <Button 
