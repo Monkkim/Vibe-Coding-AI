@@ -7,6 +7,7 @@ import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 import { isAuthenticated } from "./replit_integrations/auth";
+import { GoogleGenAI } from "@google/genai";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -167,6 +168,70 @@ export async function registerRoutes(
     const { geminiApiKey } = req.body;
     await storage.updateUserSettings(userId, { geminiApiKey });
     res.json({ success: true });
+  });
+
+  // --- Crack Time with User's API Key ---
+  app.post("/api/crack-time", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const apiKey = await storage.getUserGeminiApiKey(userId);
+      
+      if (!apiKey) {
+        return res.status(400).json({ error: "Gemini API 키가 설정되지 않았습니다. 설정 페이지에서 API 키를 먼저 입력해주세요." });
+      }
+
+      const { content, userName } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: "고민 내용을 입력해주세요." });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+
+      const systemPrompt = `당신은 AGround의 성장 컨설턴트입니다. 크랙 타임은 사용자의 막연한 고민을 명확한 관점과 구체적인 실행 계획으로 바꿔주는 프로그램입니다.
+
+당신의 역할:
+- 고민의 핵심을 꿰뚫는 날카로운 관점을 제시합니다
+- 사용자가 오늘 당장 실행할 수 있는 구체적인 액션 아이템을 제시합니다
+- 따뜻하지만 명확하게, 코치처럼 조언합니다
+
+응답은 반드시 아래의 JSON 형식으로만 작성하세요:
+{
+  "insight": "고민의 핵심을 꿰뚫는 관점. 첫 문장은 강렬한 헤드라인으로, 나머지 1-2문장은 구체적 설명.",
+  "map": ["오늘 할 수 있는 구체적 액션 1", "오늘 할 수 있는 구체적 액션 2", "오늘 할 수 있는 구체적 액션 3"]
+}`;
+
+      const userMessage = `${userName || '사용자'} 대표님의 현재의 안개(고민 상황): "${content}"`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          { role: "user", parts: [{ text: systemPrompt + "\n\n" + userMessage }] }
+        ],
+      });
+
+      const text = response.text || "";
+      
+      // Parse JSON from response
+      let result;
+      try {
+        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        result = JSON.parse(cleanText);
+      } catch (e) {
+        result = {
+          insight: text,
+          map: ["다시 시도해주세요."]
+        };
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Crack Time error:", error);
+      if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("API key")) {
+        return res.status(401).json({ error: "API 키가 유효하지 않습니다. 설정에서 올바른 키를 입력해주세요." });
+      }
+      res.status(500).json({ error: "AI 분석 중 오류가 발생했습니다." });
+    }
   });
 
   // --- Seed Data (Check if empty and seed) ---

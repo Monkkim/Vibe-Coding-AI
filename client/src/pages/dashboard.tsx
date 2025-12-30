@@ -168,15 +168,16 @@ function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode, 
 }
 
 function CrackTimeSection() {
-  const { sendMessage, isLoading, insight, actionMap, fogInput } = useCrackTime();
+  const { sendMessage, isLoading, insight, actionMap, fogInput, error } = useCrackTime();
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const [hasResult, setHasResult] = useState(false);
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    sendMessage(input, user?.firstName || "");
+    await sendMessage(input, user?.firstName || "");
     setHasResult(true);
   };
 
@@ -189,6 +190,49 @@ function CrackTimeSection() {
     "bg-yellow-500", 
     "bg-green-500"
   ];
+
+  if (hasResult && error) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-gradient-to-b from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-white" />
+              <span className="text-white font-bold text-xl tracking-wide">CRACK TIME</span>
+            </div>
+            <span className="text-white/90 text-sm font-medium">{formattedDate}</span>
+          </div>
+          <div className="p-6 space-y-6">
+            <Card className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
+              <div className="p-5">
+                <p className="text-red-700 dark:text-red-400 font-medium">{error}</p>
+                {error.includes("API 키") && (
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    asChild
+                    data-testid="button-go-settings"
+                  >
+                    <Link href="/settings">
+                      <Settings className="w-4 h-4 mr-2" /> 설정으로 이동
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            </Card>
+            <Button 
+              onClick={() => { setHasResult(false); setInput(""); }}
+              variant="outline"
+              className="w-full"
+              data-testid="button-retry-crack"
+            >
+              다시 시도하기
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (hasResult && insight) {
     return (
