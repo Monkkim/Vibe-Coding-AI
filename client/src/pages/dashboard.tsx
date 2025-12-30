@@ -24,10 +24,13 @@ import {
   ArrowLeft,
   BookOpen,
   Sun,
-  Settings
+  Settings,
+  Download,
+  FileText,
+  RefreshCw
 } from "lucide-react";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -168,34 +171,87 @@ function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode, 
 }
 
 function CrackTimeSection() {
-  const { sendMessage, isLoading, insight, actionMap, fogInput, error } = useCrackTime();
+  const { sendMessage, isLoading, result, fogInput, error, reset } = useCrackTime();
   const { user } = useAuth();
   const [input, setInput] = useState("");
-  const [hasResult, setHasResult] = useState(false);
-  const { toast } = useToast();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    await sendMessage(input, user?.firstName || "");
-    setHasResult(true);
-  };
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const today = new Date();
   const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
   const userName = user?.firstName || "Viber";
 
-  const actionDotColors = [
-    "bg-red-500",
-    "bg-yellow-500", 
-    "bg-green-500"
-  ];
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    await sendMessage(input, userName);
+  };
 
-  if (hasResult && error) {
+  const handleReset = () => {
+    reset();
+    setInput("");
+  };
+
+  const downloadAsHtml = () => {
+    if (!result?.html) return;
+    const blob = new Blob([result.html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `crack_time_${result.userName}_${result.date.replace(/\./g, '')}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const printToPdf = () => {
+    if (!iframeRef.current) return;
+    iframeRef.current.contentWindow?.print();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-gradient-to-b from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-2xl overflow-hidden shadow-lg"
+        >
+          <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-white" />
+              <span className="text-white font-bold text-xl tracking-wide">CRACK TIME</span>
+            </div>
+            <span className="text-white/90 text-sm font-medium">{formattedDate}</span>
+          </div>
+          <div className="p-12 flex flex-col items-center justify-center space-y-6">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            >
+              <Sparkles className="w-16 h-16 text-amber-500" />
+            </motion.div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold text-foreground">분석 중입니다</h3>
+              <p className="text-muted-foreground">잠시만 기다려주세요...</p>
+            </div>
+            <div className="w-48 h-2 bg-amber-200 dark:bg-amber-800 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-amber-500"
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 3, ease: "easeInOut" }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="bg-gradient-to-b from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-2xl overflow-hidden shadow-lg">
-          <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between">
+          <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-6 h-6 text-white" />
               <span className="text-white font-bold text-xl tracking-wide">CRACK TIME</span>
@@ -221,7 +277,7 @@ function CrackTimeSection() {
               </div>
             </Card>
             <Button 
-              onClick={() => { setHasResult(false); setInput(""); }}
+              onClick={handleReset}
               variant="outline"
               className="w-full"
               data-testid="button-retry-crack"
@@ -234,95 +290,50 @@ function CrackTimeSection() {
     );
   }
 
-  if (hasResult && insight) {
+  if (result?.html) {
     return (
       <motion.div 
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }}
-        className="max-w-2xl mx-auto"
+        className="max-w-3xl mx-auto space-y-4"
       >
-        <div className="bg-gradient-to-b from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-2xl overflow-hidden shadow-lg">
-          <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-white" />
-              <span className="text-white font-bold text-xl tracking-wide">CRACK TIME</span>
-            </div>
-            <span className="text-white/90 text-sm font-medium">{formattedDate}</span>
-          </div>
-
-          <div className="p-6 space-y-6">
-            <div className="border-l-4 border-amber-500 pl-4">
-              <h2 className="text-2xl font-bold text-foreground">{userName} 대표님</h2>
-              <p className="text-amber-600 dark:text-amber-400 text-sm mt-1">
-                크랙 타임이 당신의 관점을 밝게 바꿔드립니다!
-              </p>
-            </div>
-
-            <Card className="bg-white/80 dark:bg-black/30 border-0 shadow-sm">
-              <div className="p-5">
-                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold mb-3 text-sm">
-                  <Sparkles className="w-4 h-4" />
-                  현재의 안개 (고민 상황)
-                </div>
-                <p className="text-foreground/80 leading-relaxed text-sm">
-                  {fogInput || input}
-                </p>
-              </div>
-            </Card>
-
-            <Card className="bg-white/80 dark:bg-black/30 border-0 shadow-sm">
-              <div className="p-5">
-                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold mb-3 text-sm">
-                  <Sun className="w-4 h-4" />
-                  관점의 빛 (크랙 포인트)
-                </div>
-                <h3 className="text-lg font-bold text-foreground leading-relaxed mb-3">
-                  {insight.split('.')[0]}.
-                </h3>
-                <p className="text-foreground/70 text-sm leading-relaxed">
-                  {insight.split('.').slice(1).join('.').trim()}
-                </p>
-              </div>
-            </Card>
-
-            <Card className="bg-white/80 dark:bg-black/30 border-0 shadow-sm">
-              <div className="p-5">
-                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold mb-4 text-sm">
-                  <MapIcon className="w-4 h-4" />
-                  오늘의 지도 (Next Action)
-                </div>
-                <ul className="space-y-3">
-                  {actionMap.map((action, i) => (
-                    <motion.li 
-                      key={i}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.1 }}
-                      className="flex items-start gap-3"
-                    >
-                      <div className={`w-2.5 h-2.5 rounded-full ${actionDotColors[i % 3]} mt-1.5 flex-shrink-0`} />
-                      <span className="text-foreground/80 text-sm leading-relaxed">{action}</span>
-                    </motion.li>
-                  ))}
-                </ul>
-              </div>
-            </Card>
-
-            <div className="text-center pt-4 pb-2">
-              <p className="text-xs text-muted-foreground tracking-widest">
-                MORNING SUNLIGHT · BREAKING LIMITS · CRACK TIME
-              </p>
-            </div>
-
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h2 className="text-lg font-semibold text-foreground">크랙 타임 결과</h2>
+          <div className="flex items-center gap-2 flex-wrap">
             <Button 
-              onClick={() => { setHasResult(false); setInput(""); }}
+              onClick={downloadAsHtml}
               variant="outline"
-              className="w-full"
+              size="sm"
+              data-testid="button-download-html"
+            >
+              <Download className="w-4 h-4 mr-2" /> HTML 저장
+            </Button>
+            <Button 
+              onClick={printToPdf}
+              variant="outline"
+              size="sm"
+              data-testid="button-print-pdf"
+            >
+              <FileText className="w-4 h-4 mr-2" /> PDF 출력
+            </Button>
+            <Button 
+              onClick={handleReset}
+              variant="outline"
+              size="sm"
               data-testid="button-new-crack"
             >
-              새로운 고민 입력하기
+              <RefreshCw className="w-4 h-4 mr-2" /> 새로 만들기
             </Button>
           </div>
+        </div>
+        <div className="rounded-2xl overflow-hidden shadow-lg border border-border">
+          <iframe
+            ref={iframeRef}
+            srcDoc={result.html}
+            className="w-full h-[700px] bg-white"
+            title="Crack Time Result"
+            data-testid="iframe-crack-result"
+          />
         </div>
       </motion.div>
     );
@@ -331,7 +342,7 @@ function CrackTimeSection() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-gradient-to-b from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 rounded-2xl overflow-hidden shadow-lg">
-        <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between">
+        <div className="bg-amber-400 dark:bg-amber-600 px-6 py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-white" />
             <span className="text-white font-bold text-xl tracking-wide">CRACK TIME</span>
@@ -363,19 +374,13 @@ function CrackTimeSection() {
                 />
                 <Button 
                   type="submit" 
-                  disabled={isLoading || !input.trim()}
+                  disabled={!input.trim()}
                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold"
                   data-testid="button-crack-submit"
                 >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 animate-spin" /> 관점의 빛을 찾는 중...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Sun className="w-4 h-4" /> 크랙 포인트 발견하기
-                    </span>
-                  )}
+                  <span className="flex items-center gap-2">
+                    <Sun className="w-4 h-4" /> 크랙 포인트 발견하기
+                  </span>
                 </Button>
               </form>
             </div>
