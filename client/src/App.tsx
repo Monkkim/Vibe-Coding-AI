@@ -6,13 +6,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { Landing } from "@/pages/landing";
 import { Dashboard } from "@/pages/dashboard";
+import { Settings } from "@/pages/settings";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/dashboard" component={Dashboard} />
-      {/* Sub-routes handled inside Dashboard or just redirect to main dashboard for MVP */}
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
