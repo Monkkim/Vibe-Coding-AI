@@ -10,7 +10,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Coins, Trophy, Gift, Target, Heart, Sparkles, Clock, TrendingUp } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Coins, Trophy, Gift, Target, Heart, Sparkles, Clock, TrendingUp, Mail } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -35,9 +36,10 @@ const VALUE_CATEGORIES = [
 export function TokenGame() {
   const { data: tokens, isLoading } = useTokens();
   const { user } = useAuth();
+  const [showNotification, setShowNotification] = useState(false);
   
   const myStats = useMemo(() => {
-    if (!tokens || !user) return { received: 0, given: 0, pending: 0, today: 0, thisWeek: 0, cumulative: 0 };
+    if (!tokens || !user) return { received: 0, given: 0, pending: 0, pendingCount: 0, today: 0, thisWeek: 0, cumulative: 0 };
     
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -54,13 +56,16 @@ export function TokenGame() {
     const isMe = (name: string | null | undefined) => 
       name && userIdentifiers.some(id => id?.toLowerCase() === name.toLowerCase());
     
-    let received = 0, given = 0, pending = 0, today = 0, thisWeek = 0, cumulative = 0;
+    let received = 0, given = 0, pending = 0, pendingCount = 0, today = 0, thisWeek = 0, cumulative = 0;
     
     tokens.forEach((t: Token) => {
       if (isMe(t.receiverName) || t.toUserId === user.id) {
         received += t.amount;
         cumulative += t.amount;
-        if (t.status === "pending") pending += t.amount;
+        if (t.status === "pending") {
+          pending += t.amount;
+          pendingCount++;
+        }
         if (new Date(t.createdAt) >= startOfDay) today += t.amount;
         if (new Date(t.createdAt) >= startOfWeek) thisWeek += t.amount;
       }
@@ -69,7 +74,7 @@ export function TokenGame() {
       }
     });
     
-    return { received, given, pending, today, thisWeek, cumulative };
+    return { received, given, pending, pendingCount, today, thisWeek, cumulative };
   }, [tokens, user]);
 
   const leaderboard = useMemo(() => {
@@ -90,12 +95,38 @@ export function TokenGame() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 relative">
         <h2 className="text-3xl font-bold font-display flex items-center justify-center gap-3 text-amber-600">
           <Coins className="w-8 h-8" />
           가치 토큰 GAME
+          {myStats.pendingCount > 0 && (
+            <button
+              onClick={() => setShowNotification(!showNotification)}
+              className="relative ml-2"
+              data-testid="button-notification"
+            >
+              <Mail className="w-6 h-6 text-pink-500 animate-bounce" />
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {myStats.pendingCount}
+              </span>
+            </button>
+          )}
         </h2>
         <p className="text-muted-foreground text-sm mt-1">1:1 기여 기반 코칭 토큰 시스템</p>
+        
+        {showNotification && myStats.pendingCount > 0 && (
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 bg-gradient-to-r from-pink-100 to-rose-100 dark:from-pink-900/50 dark:to-rose-900/50 border border-pink-300 dark:border-pink-700 rounded-xl p-4 shadow-lg max-w-sm">
+            <p className="text-pink-700 dark:text-pink-300 font-medium">
+              누군가가 {user?.firstName}님의 가치를 인정했습니다!
+            </p>
+            <p className="text-sm text-pink-600 dark:text-pink-400 mt-1">
+              지금 바로 확인해보세요!
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              아래 핑크색 "받기 대기" 카드를 클릭하세요
+            </p>
+          </div>
+        )}
       </div>
 
       <GameRulesSection />
@@ -202,6 +233,7 @@ function ProfileCard({ user, stats }: { user: any; stats: any }) {
 function PendingReceiveCard({ pending, tokens, user }: { pending: number; tokens: Token[] | undefined; user: any }) {
   const acceptToken = useAcceptToken();
   const { toast } = useToast();
+  const [showPendingDialog, setShowPendingDialog] = useState(false);
   
   const userIdentifiers = user ? [
     user.firstName,
@@ -217,36 +249,77 @@ function PendingReceiveCard({ pending, tokens, user }: { pending: number; tokens
     (t: Token) => (isMe(t.receiverName) || t.toUserId === user?.id) && t.status === "pending"
   ) || [];
 
-  const handleAcceptAll = () => {
-    pendingTokens.forEach((t: Token) => {
-      acceptToken.mutate(t.id, {
-        onSuccess: () => toast({ title: "수령 완료!", description: "감사하며 받았습니다." }),
-      });
+  const handleAccept = (tokenId: number) => {
+    acceptToken.mutate(tokenId, {
+      onSuccess: () => toast({ title: "수령 완료!", description: "감사하며 받았습니다." }),
     });
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-pink-400 to-rose-500 text-white overflow-visible">
-      <div className="text-center">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Gift className="w-5 h-5" />
-          <span className="font-semibold">받기 대기</span>
+    <>
+      <Card 
+        className="p-6 bg-gradient-to-br from-pink-400 to-rose-500 text-white overflow-visible cursor-pointer hover:opacity-90 transition-opacity"
+        onClick={() => setShowPendingDialog(true)}
+        data-testid="card-pending-receive"
+      >
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Gift className="w-5 h-5" />
+            <span className="font-semibold">받기 대기</span>
+          </div>
+          <p className="text-4xl font-bold">{(pending / 10000).toFixed(0)}만원</p>
+          <p className="text-pink-100 text-sm mt-1">승인을 기다리는 중입니다</p>
+          {pendingTokens.length > 0 && (
+            <p className="mt-2 text-sm animate-pulse">클릭하여 확인하기</p>
+          )}
         </div>
-        <p className="text-4xl font-bold">{(pending / 10000).toFixed(0)}만원</p>
-        <p className="text-pink-100 text-sm mt-1">승인을 기다리는 중입니다</p>
-        {pendingTokens.length > 0 && (
-          <Button 
-            onClick={handleAcceptAll}
-            className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white"
-            disabled={acceptToken.isPending}
-            data-testid="button-accept-all"
-          >
-            <Heart className="w-4 h-4 mr-2" />
-            전체 한번에 받기
-          </Button>
-        )}
-      </div>
-    </Card>
+      </Card>
+
+      <Dialog open={showPendingDialog} onOpenChange={setShowPendingDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-pink-600">
+              <Gift className="w-5 h-5" />
+              받기 대기 중인 토큰
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-3 max-h-[400px] overflow-y-auto">
+            {pendingTokens.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">대기 중인 토큰이 없습니다</p>
+            ) : (
+              pendingTokens.map((token: Token) => (
+                <div 
+                  key={token.id} 
+                  className="p-4 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 rounded-lg border border-pink-200/50 dark:border-pink-800/30"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold">{token.senderName}님이 보냄</p>
+                      <p className="text-2xl font-bold text-pink-600">{(token.amount / 10000).toFixed(0)}만원</p>
+                      {token.message && (
+                        <p className="text-sm text-muted-foreground mt-1">{token.message}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(token.createdAt), "yyyy.MM.dd HH:mm")}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => handleAccept(token.id)}
+                      disabled={acceptToken.isPending}
+                      className="bg-pink-500 hover:bg-pink-600 text-white"
+                      data-testid={`button-accept-${token.id}`}
+                    >
+                      <Heart className="w-4 h-4 mr-1" />
+                      받기
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -260,6 +333,22 @@ function RecognizeValueForm({ user }: { user: any }) {
   const [customAmount, setCustomAmount] = useState("");
   const [category, setCategory] = useState("");
   const [customMessage, setCustomMessage] = useState("");
+
+  const filteredMembers = batchMembers?.filter(member => {
+    if (!user) return true;
+    const memberNameLower = member.name?.toLowerCase();
+    const memberEmailLower = member.email?.toLowerCase();
+    const userFirstNameLower = user.firstName?.toLowerCase();
+    const userEmailLower = user.email?.toLowerCase();
+    const userFullNameLower = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
+    
+    if (memberNameLower === userFirstNameLower) return false;
+    if (memberNameLower === userEmailLower) return false;
+    if (memberNameLower === userFullNameLower) return false;
+    if (memberEmailLower && memberEmailLower === userEmailLower) return false;
+    
+    return true;
+  }) || [];
 
   const handleSubmit = () => {
     const finalAmount = amount || Number(customAmount) * 10000;
@@ -307,8 +396,8 @@ function RecognizeValueForm({ user }: { user: any }) {
             <SelectContent>
               {membersLoading ? (
                 <div className="p-2 text-sm text-muted-foreground">로딩 중...</div>
-              ) : batchMembers && batchMembers.length > 0 ? (
-                batchMembers.map((member) => (
+              ) : filteredMembers.length > 0 ? (
+                filteredMembers.map((member) => (
                   <SelectItem key={member.id} value={member.name}>
                     {member.name} {member.email ? `(${member.email})` : ""}
                   </SelectItem>
