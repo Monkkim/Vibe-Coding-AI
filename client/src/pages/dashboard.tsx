@@ -95,16 +95,16 @@ function Sidebar({
 
         <nav className="space-y-2">
           <SidebarItem 
-            icon={<Sparkles className="w-4 h-4" />} 
-            label="Crack Time" 
-            active={activeTab === "crack"}
-            onClick={() => setActiveTab("crack")}
-          />
-          <SidebarItem 
             icon={<Users className="w-4 h-4" />} 
             label="기수 관리" 
             active={activeTab === "batch"}
             onClick={() => setActiveTab("batch")}
+          />
+          <SidebarItem 
+            icon={<Sparkles className="w-4 h-4" />} 
+            label="Crack Time" 
+            active={activeTab === "crack"}
+            onClick={() => setActiveTab("crack")}
           />
           <SidebarItem 
             icon={<Gem className="w-4 h-4" />} 
