@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useFolders, useCreateFolder, useDeleteFolder, useBatchMembers, useCreateBatchMember, useDeleteBatchMember, useMemberJournals } from "@/hooks/use-folders";
-import { useCreateJournal } from "@/hooks/use-journals";
+import { useCreateJournal, useUpdateJournal } from "@/hooks/use-journals";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TokenGame } from "@/components/TokenGame";
 import { useCrackTime } from "@/hooks/use-ai-chat";
@@ -27,7 +27,9 @@ import {
   Settings,
   Download,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Pencil,
+  X
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState, useRef } from "react";
@@ -404,6 +406,7 @@ function BatchManager() {
   const { toast } = useToast();
   const { user } = useAuth();
   const createJournal = useCreateJournal();
+  const updateJournal = useUpdateJournal();
   
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
@@ -413,6 +416,9 @@ function BatchManager() {
   const [journalTitle, setJournalTitle] = useState("");
   const [journalContent, setJournalContent] = useState("");
   const [showJournalForm, setShowJournalForm] = useState(false);
+  const [editingJournalId, setEditingJournalId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
   
   const { data: members, isLoading: membersLoading } = useBatchMembers(selectedFolderId);
   const createMember = useCreateBatchMember();
@@ -474,6 +480,37 @@ function BatchManager() {
   const handleSelectMember = (memberId: number, memberName: string) => {
     setSelectedMemberId(memberId);
     setSelectedMemberName(memberName);
+  };
+
+  const startEditJournal = (journal: { id: number; title: string; content: string }) => {
+    setEditingJournalId(journal.id);
+    setEditTitle(journal.title);
+    setEditContent(journal.content);
+  };
+
+  const cancelEditJournal = () => {
+    setEditingJournalId(null);
+    setEditTitle("");
+    setEditContent("");
+  };
+
+  const handleUpdateJournal = () => {
+    if (!editTitle.trim() || !editContent.trim() || !editingJournalId) {
+      toast({ title: "제목과 내용을 입력하세요", variant: "destructive" });
+      return;
+    }
+    updateJournal.mutate({
+      id: editingJournalId,
+      title: editTitle,
+      content: editContent,
+      memberId: selectedMemberId || undefined,
+    }, {
+      onSuccess: () => {
+        toast({ title: "저널 수정 완료" });
+        cancelEditJournal();
+      },
+      onError: () => toast({ title: "저널 수정 실패", variant: "destructive" })
+    });
   };
 
   const handleBack = () => {
@@ -721,16 +758,69 @@ function BatchManager() {
                   className="glass-card rounded-2xl p-5"
                   data-testid={`card-journal-${journal.id}`}
                 >
-                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                    <span className="text-xs px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium">
-                      #{journal.category}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(journal.createdAt).toLocaleString('ko-KR')}
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-lg mb-2">{journal.title}</h4>
-                  <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{journal.content}</p>
+                  {editingJournalId === journal.id ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-lg">저널 수정</h3>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={cancelEditJournal}
+                          data-testid={`button-cancel-edit-${journal.id}`}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <Input 
+                        placeholder="제목" 
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="rounded-xl bg-white/50 dark:bg-black/20"
+                        data-testid={`input-edit-title-${journal.id}`}
+                      />
+                      <Textarea 
+                        placeholder="내용을 입력하세요..."
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="rounded-xl bg-white/50 dark:bg-black/20 min-h-[150px]"
+                        data-testid={`input-edit-content-${journal.id}`}
+                      />
+                      <div className="flex gap-2 justify-end flex-wrap">
+                        <Button variant="outline" onClick={cancelEditJournal}>취소</Button>
+                        <Button 
+                          onClick={handleUpdateJournal} 
+                          disabled={updateJournal.isPending}
+                          className="bg-amber-500"
+                          data-testid={`button-save-edit-${journal.id}`}
+                        >
+                          저장하기
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                        <span className="text-xs px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium">
+                          #{journal.category}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => startEditJournal(journal)}
+                            data-testid={`button-edit-journal-${journal.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(journal.createdAt).toLocaleString('ko-KR')}
+                          </span>
+                        </div>
+                      </div>
+                      <h4 className="font-bold text-lg mb-2">{journal.title}</h4>
+                      <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{journal.content}</p>
+                    </>
+                  )}
                 </Card>
               ))}
               {memberJournals?.length === 0 && !journalsLoading && (

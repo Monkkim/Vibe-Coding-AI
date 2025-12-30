@@ -38,7 +38,7 @@ export function useCreateJournal() {
 export function useUpdateJournal() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: number } & Partial<InsertJournal>) => {
+    mutationFn: async ({ id, memberId, ...updates }: { id: number; memberId?: number } & Partial<InsertJournal>) => {
       const url = buildUrl(api.journals.update.path, { id });
       const res = await fetch(url, {
         method: api.journals.update.method,
@@ -49,7 +49,12 @@ export function useUpdateJournal() {
       if (!res.ok) throw new Error("저널 수정에 실패했습니다.");
       return api.journals.update.responses[200].parse(await res.json());
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.journals.list.path] }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.journals.list.path] });
+      if (variables.memberId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/batch-members', variables.memberId, 'journals'] });
+      }
+    },
   });
 }
 
