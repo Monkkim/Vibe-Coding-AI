@@ -23,8 +23,10 @@ import {
   UserPlus,
   ArrowLeft,
   BookOpen,
-  Sun
+  Sun,
+  Settings
 } from "lucide-react";
+import { Link } from "wouter";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -122,14 +124,26 @@ function Sidebar({
             <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-          onClick={onLogout}
-          data-testid="button-logout"
-        >
-          <LogOut className="w-4 h-4 mr-2" /> 로그아웃
-        </Button>
+        <div className="space-y-2">
+          <Button 
+            variant="outline" 
+            className="w-full justify-start"
+            asChild
+            data-testid="button-settings"
+          >
+            <Link href="/settings">
+              <Settings className="w-4 h-4 mr-2" /> 설정
+            </Link>
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+            onClick={onLogout}
+            data-testid="button-logout"
+          >
+            <LogOut className="w-4 h-4 mr-2" /> 로그아웃
+          </Button>
+        </div>
       </div>
     </aside>
   );
