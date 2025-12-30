@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRACK TIME - 2025.12.04</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #FFF8E7 0%, #FFE4B5 30%, #FFECD2 70%, #FCB69F 100%);
+            font-family: 'Noto Sans KR', sans-serif;
+            color: #2D2D2D;
+        }
+        .page {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            position: relative;
+            overflow: hidden;
+            page-break-after: always;
+            break-after: page;
+        }
+        .page:last-child {
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+        .page::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: 
+                radial-gradient(circle at 30% 20%, rgba(255, 200, 87, 0.4) 0%, transparent 30%),
+                radial-gradient(circle at 70% 30%, rgba(255, 165, 0, 0.3) 0%, transparent 25%);
+            animation: sunPulse 6s ease-in-out infinite;
+        }
+        @keyframes sunPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+        .page::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                linear-gradient(47deg, transparent 49%, rgba(255, 140, 0, 0.12) 49%, rgba(255, 140, 0, 0.12) 51%, transparent 51%),
+                linear-gradient(137deg, transparent 49%, rgba(255, 100, 50, 0.08) 49%, rgba(255, 100, 50, 0.08) 51%, transparent 51%);
+            background-size: 120px 120px, 180px 180px;
+        }
+        .card {
+            max-width: 600px; width: 95%;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 24px;
+            padding: 48px 36px;
+            position: relative;
+            border: 2px solid rgba(255, 140, 0, 0.3);
+            box-shadow: 0 20px 60px rgba(255, 140, 0, 0.15);
+            z-index: 1;
+        }
+        .crack-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, rgba(255, 140, 0, 0.7), transparent);
+            height: 2px;
+            animation: crackGlow 2s ease-in-out infinite;
+        }
+        .crack-line:nth-child(1) { top: 20%; left: -10%; width: 40%; transform: rotate(-15deg); }
+        .crack-line:nth-child(2) { top: 60%; right: -5%; width: 30%; transform: rotate(25deg); animation-delay: 0.5s; }
+        .crack-line:nth-child(3) { bottom: 30%; left: 10%; width: 25%; transform: rotate(-8deg); animation-delay: 1s; }
+        @keyframes crackGlow {
+            0%, 100% { opacity: 0.4; box-shadow: 0 0 15px rgba(255, 140, 0, 0.4); }
+            50% { opacity: 1; box-shadow: 0 0 25px rgba(255, 140, 0, 0.7); }
+        }
+        .header { text-align: center; margin-bottom: 40px; }
+        .head-icon { width: 80px; height: 80px; margin: 0 auto 20px; }
+        .head-icon svg { width: 100%; height: 100%; }
+        .logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3.5rem;
+            letter-spacing: 12px;
+            background: linear-gradient(135deg, #FF6B35 0%, #FF8C00 50%, #FFB347 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+        .date { font-size: 0.85rem; color: #FF8C00; letter-spacing: 3px; font-weight: 500; }
+        .name {
+            font-size: 2.2rem; font-weight: 700; text-align: center;
+            margin-bottom: 32px; position: relative; width: 100%; color: #333;
+        }
+        .name::after {
+            content: ''; position: absolute; bottom: -8px; left: 50%;
+            transform: translateX(-50%); width: 60px; height: 3px;
+            background: linear-gradient(90deg, transparent, #FF8C00, transparent);
+        }
+        .section { margin-bottom: 28px; }
+        .section-title { font-size: 0.75rem; color: #FF6B35; letter-spacing: 2px; margin-bottom: 12px; text-transform: uppercase; font-weight: 700; }
+        .content { font-size: 1rem; line-height: 1.8; color: #444; }
+        .insight {
+            background: linear-gradient(135deg, rgba(255, 140, 0, 0.15) 0%, rgba(255, 200, 100, 0.1) 100%);
+            border-left: 4px solid #FF8C00;
+            padding: 20px 24px;
+            border-radius: 0 16px 16px 0;
+            margin-top: 24px;
+        }
+        .insight-text { font-size: 1.05rem; line-height: 1.9; color: #333; font-weight: 500; }
+        .footer { text-align: center; margin-top: 36px; padding-top: 24px; border-top: 2px solid rgba(255, 140, 0, 0.2); }
+        .footer-text { font-size: 0.85rem; color: #FF6B35; font-weight: 500; }
+        .sparkle { position: absolute; width: 8px; height: 8px; background: #FFD700; border-radius: 50%; animation: sparkle 2s ease-in-out infinite; }
+        .sparkle:nth-child(4) { top: 15%; right: 20%; }
+        .sparkle:nth-child(5) { top: 40%; left: 15%; animation-delay: 0.5s; }
+        .sparkle:nth-child(6) { bottom: 20%; right: 25%; animation-delay: 1s; }
+        @keyframes sparkle { 0%, 100% { transform: scale(0.5); opacity: 0.3; } 50% { transform: scale(1.2); opacity: 1; } }
+
+        @media print {
+            .page { min-height: auto; padding: 20px; }
+            body { background: white; }
+            .page::before, .page::after { display: none; }
+            .sparkle { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 도완 -->
+<div class="page">
+    <div class="card">
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="header">
+            <div class="head-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                    <path d="M50 10 C25 10 15 35 15 50 C15 70 25 85 40 90 L40 95 L60 95 L60 90 C75 85 85 70 85 50 C85 35 75 10 50 10 Z" fill="rgba(255,140,0,0.15)" stroke="rgba(255,140,0,0.6)" stroke-width="2"/>
+                    <path d="M50 12 L48 28 L55 35 L47 48 L54 58 L50 70" stroke="#FF8C00" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M48 28 L38 35" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M55 35 L65 32" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M47 48 L35 52" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M54 58 L68 55" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <circle cx="50" cy="12" r="3" fill="#FFD700"><animate attributeName="r" values="2;4;2" dur="1.5s" repeatCount="indefinite"/></circle>
+                </svg>
+            </div>
+            <div class="logo">CRACK TIME</div>
+            <div class="date">2025.12.04</div>
+        </div>
+        <h1 class="name">도완</h1>
+        <div class="section">
+            <div class="section-title">✦ 현재 상황</div>
+            <div class="content">유튜브 2편 올려야 하는 상황. 사람들이 1:1 신청을 안 함. 신청 안 하는 이유를 직접 물어보기엔 애매하지만, 그 이유를 알면 고객 생각 과정을 따라가며 사업 아이디어를 얻을 수 있음.</div>
+        </div>
+        <div class="insight">
+            <div class="section-title">💡 크랙 포인트</div>
+            <div class="insight-text">"바빠서, 유튜브를 못 찍어서" 이런 사람들이 꿈의 고객이 아니다… 라고만 생각하지 말고 <strong>그 이유를 찾아보기.</strong><br><br>신념과 사명이 투철한 존재가 바쁜 이유, 그리고 원칙에 유튜브 찍는 시간이 없는 이유. 어떻게 하면 만들 수 있을지 고민하는 존재가 되어도 좋을 듯.</div>
+        </div>
+        <div class="footer"><div class="footer-text">☀️ 머릿속에 금이 가는 순간, 새로운 시야가 열린다</div></div>
+    </div>
+</div>
+
+<!-- 하연 -->
+<div class="page">
+    <div class="card">
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="header">
+            <div class="head-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                    <path d="M50 10 C25 10 15 35 15 50 C15 70 25 85 40 90 L40 95 L60 95 L60 90 C75 85 85 70 85 50 C85 35 75 10 50 10 Z" fill="rgba(255,140,0,0.15)" stroke="rgba(255,140,0,0.6)" stroke-width="2"/>
+                    <path d="M50 12 L48 28 L55 35 L47 48 L54 58 L50 70" stroke="#FF8C00" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M48 28 L38 35" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M55 35 L65 32" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M47 48 L35 52" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M54 58 L68 55" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <circle cx="50" cy="12" r="3" fill="#FFD700"><animate attributeName="r" values="2;4;2" dur="1.5s" repeatCount="indefinite"/></circle>
+                </svg>
+            </div>
+            <div class="logo">CRACK TIME</div>
+            <div class="date">2025.12.04</div>
+        </div>
+        <h1 class="name">하연</h1>
+        <div class="section">
+            <div class="section-title">✦ 현재 상황</div>
+            <div class="content">다양한 일정들로 바빴고, 스스로 '구조 없었다'라는 느낌을 받음. 체력과 본업에 무리가 옴.</div>
+        </div>
+        <div class="insight">
+            <div class="section-title">💡 크랙 포인트</div>
+            <div class="insight-text">잘하는 방법, 성공하는 방법 말고 또 생각하기.<br><br><strong>"신은 나에게 무엇을 배우라고 이 바쁨을 주었을까?"</strong><br><br>내가 사랑하던 존재도 거리를 두게 되는 때가 앞으로 찾아온다면, 그 시그널은 무엇이 될지 지금 자기 자신을 돌아보며 힌트 얻어도 좋을 듯.</div>
+        </div>
+        <div class="footer"><div class="footer-text">☀️ 머릿속에 금이 가는 순간, 새로운 시야가 열린다</div></div>
+    </div>
+</div>
+
+<!-- 은아 -->
+<div class="page">
+    <div class="card">
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="header">
+            <div class="head-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                    <path d="M50 10 C25 10 15 35 15 50 C15 70 25 85 40 90 L40 95 L60 95 L60 90 C75 85 85 70 85 50 C85 35 75 10 50 10 Z" fill="rgba(255,140,0,0.15)" stroke="rgba(255,140,0,0.6)" stroke-width="2"/>
+                    <path d="M50 12 L48 28 L55 35 L47 48 L54 58 L50 70" stroke="#FF8C00" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M48 28 L38 35" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M55 35 L65 32" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M47 48 L35 52" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M54 58 L68 55" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <circle cx="50" cy="12" r="3" fill="#FFD700"><animate attributeName="r" values="2;4;2" dur="1.5s" repeatCount="indefinite"/></circle>
+                </svg>
+            </div>
+            <div class="logo">CRACK TIME</div>
+            <div class="date">2025.12.04</div>
+        </div>
+        <h1 class="name">은아</h1>
+        <div class="section">
+            <div class="section-title">✦ 현재 상황</div>
+            <div class="content">바이브 코딩 시도 이후로 계속해서 나아가는 중. 수영장이 아니라 바다에서 수영하느라 생기는 <strong>'표류'</strong>를 몸소 체험 중.</div>
+        </div>
+        <div class="insight">
+            <div class="section-title">💡 크랙 포인트</div>
+            <div class="insight-text">수영장의 안전함을 벗어나 바다로 나갔다는 것 자체가 큰 도전.<br><br>표류는 실패가 아니라 <strong>진짜 바다를 경험하고 있다는 증거.</strong><br><br>방향을 잃었을 때 보이는 것들이 있다. 지금 이 순간 무엇이 보이는지 기록해두기.</div>
+        </div>
+        <div class="footer"><div class="footer-text">☀️ 머릿속에 금이 가는 순간, 새로운 시야가 열린다</div></div>
+    </div>
+</div>
+
+<!-- 래이 -->
+<div class="page">
+    <div class="card">
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="header">
+            <div class="head-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                    <path d="M50 10 C25 10 15 35 15 50 C15 70 25 85 40 90 L40 95 L60 95 L60 90 C75 85 85 70 85 50 C85 35 75 10 50 10 Z" fill="rgba(255,140,0,0.15)" stroke="rgba(255,140,0,0.6)" stroke-width="2"/>
+                    <path d="M50 12 L48 28 L55 35 L47 48 L54 58 L50 70" stroke="#FF8C00" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M48 28 L38 35" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M55 35 L65 32" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M47 48 L35 52" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M54 58 L68 55" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <circle cx="50" cy="12" r="3" fill="#FFD700"><animate attributeName="r" values="2;4;2" dur="1.5s" repeatCount="indefinite"/></circle>
+                </svg>
+            </div>
+            <div class="logo">CRACK TIME</div>
+            <div class="date">2025.12.04</div>
+        </div>
+        <h1 class="name">래이</h1>
+        <div class="section">
+            <div class="section-title">✦ 현재 상황</div>
+            <div class="content">너무나 바빠 이번 주 투두를 참석하지 못하는 상황. 지금 스탠포드가 부수적인 수준의 일, 나를 살리는 일이 아닌 상태.</div>
+        </div>
+        <div class="insight">
+            <div class="section-title">💡 크랙 포인트</div>
+            <div class="insight-text">잘못 고른 건 아닐까?<br><br>이번에 고른 일들이 무의식 속엔 <strong>'나의 숙제'</strong>가 되어버린 건 아닐까?<br><br>집중과정에서 해야 하는 숙제를 넣고, online으로 존재하는 것은 어떨까.</div>
+        </div>
+        <div class="footer"><div class="footer-text">☀️ 머릿속에 금이 가는 순간, 새로운 시야가 열린다</div></div>
+    </div>
+</div>
+
+<!-- 새롬 -->
+<div class="page">
+    <div class="card">
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="header">
+            <div class="head-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                    <path d="M50 10 C25 10 15 35 15 50 C15 70 25 85 40 90 L40 95 L60 95 L60 90 C75 85 85 70 85 50 C85 35 75 10 50 10 Z" fill="rgba(255,140,0,0.15)" stroke="rgba(255,140,0,0.6)" stroke-width="2"/>
+                    <path d="M50 12 L48 28 L55 35 L47 48 L54 58 L50 70" stroke="#FF8C00" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M48 28 L38 35" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M55 35 L65 32" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M47 48 L35 52" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M54 58 L68 55" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <circle cx="50" cy="12" r="3" fill="#FFD700"><animate attributeName="r" values="2;4;2" dur="1.5s" repeatCount="indefinite"/></circle>
+                </svg>
+            </div>
+            <div class="logo">CRACK TIME</div>
+            <div class="date">2025.12.04</div>
+        </div>
+        <h1 class="name">새롬</h1>
+        <div class="section">
+            <div class="section-title">✦ 현재 상황</div>
+            <div class="content">목요일 강의 + 주변 키맨들의 코딩 요청으로 스케줄이 몰림.</div>
+        </div>
+        <div class="insight">
+            <div class="section-title">💡 크랙 포인트</div>
+            <div class="insight-text"><strong>키맨에 대한 나만의 정의</strong>를 만들어보는 건 어떨까. 혹은 키맨 정렬법.<br><br>혹은, 이 고통과 괴로움은 반드시 넘어가야 할 나의 과제이므로 <strong>매일 아침 그 과제들을 향해 "사랑한다"고 다섯 번씩 외치고 시작하기.</strong></div>
+        </div>
+        <div class="footer"><div class="footer-text">☀️ 머릿속에 금이 가는 순간, 새로운 시야가 열린다</div></div>
+    </div>
+</div>
+
+<!-- 지은 -->
+<div class="page">
+    <div class="card">
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="header">
+            <div class="head-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                    <path d="M50 10 C25 10 15 35 15 50 C15 70 25 85 40 90 L40 95 L60 95 L60 90 C75 85 85 70 85 50 C85 35 75 10 50 10 Z" fill="rgba(255,140,0,0.15)" stroke="rgba(255,140,0,0.6)" stroke-width="2"/>
+                    <path d="M50 12 L48 28 L55 35 L47 48 L54 58 L50 70" stroke="#FF8C00" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M48 28 L38 35" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M55 35 L65 32" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M47 48 L35 52" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M54 58 L68 55" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <circle cx="50" cy="12" r="3" fill="#FFD700"><animate attributeName="r" values="2;4;2" dur="1.5s" repeatCount="indefinite"/></circle>
+                </svg>
+            </div>
+            <div class="logo">CRACK TIME</div>
+            <div class="date">2025.12.04</div>
+        </div>
+        <h1 class="name">지은</h1>
+        <div class="section">
+            <div class="section-title">✦ 현재 상황</div>
+            <div class="content">다시 눈썹이 하고 싶어짐. 홈페이지에도 눈썹 넣을지 고민 중. 경복궁 놀러온 외국인은 구글이 광고를 한다는데, 구글에서 중요하게 여기는 매체에 글을 써야 하나 고민.</div>
+        </div>
+        <div class="insight">
+            <div class="section-title">💡 크랙 포인트</div>
+            <div class="insight-text"><strong>여행객들이 정보를 수집하는 방식</strong>에 대해 다양하게 알거나, 여행객 데이터를 가진 사람들에게 제안을 받는 것. 또는 알고리즘을 테스트해보는 것.<br><br>에스테틱에 대해 어색한 건 당연할 수밖에 없다. 나와 비슷한 업종을 하는, 오프라인 매장도 북촌/서촌/종로에 있는 대표님들 찾아보기. 그중 <strong>내 수강생 있었으면 이야기해보기.</strong></div>
+        </div>
+        <div class="footer"><div class="footer-text">☀️ 머릿속에 금이 가는 순간, 새로운 시야가 열린다</div></div>
+    </div>
+</div>
+
+<!-- 태욱 -->
+<div class="page">
+    <div class="card">
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="header">
+            <div class="head-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                    <path d="M50 10 C25 10 15 35 15 50 C15 70 25 85 40 90 L40 95 L60 95 L60 90 C75 85 85 70 85 50 C85 35 75 10 50 10 Z" fill="rgba(255,140,0,0.15)" stroke="rgba(255,140,0,0.6)" stroke-width="2"/>
+                    <path d="M50 12 L48 28 L55 35 L47 48 L54 58 L50 70" stroke="#FF8C00" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M48 28 L38 35" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M55 35 L65 32" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M47 48 L35 52" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M54 58 L68 55" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <circle cx="50" cy="12" r="3" fill="#FFD700"><animate attributeName="r" values="2;4;2" dur="1.5s" repeatCount="indefinite"/></circle>
+                </svg>
+            </div>
+            <div class="logo">CRACK TIME</div>
+            <div class="date">2025.12.04</div>
+        </div>
+        <h1 class="name">태욱</h1>
+        <div class="section">
+            <div class="section-title">✦ 현재 상황</div>
+            <div class="content">무슨 상품을 런칭할지 고민 중.</div>
+        </div>
+        <div class="insight">
+            <div class="section-title">💡 크랙 포인트</div>
+            <div class="insight-text"><strong>생각을 바꿀 수 있는 아이디어는 주변에 있다!</strong><br><br>지난번 광고 배너처럼. 주변에 보이는 수많은 광고 배너 중에 '이런 제안'은 따라가고 싶고 '저런 제안'은 관심이 안 갔었다.<br><br>버스에 붙어있는 광고, 집 앞 카페에 있는 전단지… 그중 <strong>내 마음을 건드린 메시지</strong> 파악해보기.<br><br>삶에서 만난 여러 선생님들 중에서, 내게 가장 큰 움직임을 준 존재는 뭐지? 무엇을 했더니 나는 움직였지? 찾고, 그걸 지금 내 사업에 빗대 다시 생각하기.</div>
+        </div>
+        <div class="footer"><div class="footer-text">☀️ 머릿속에 금이 가는 순간, 새로운 시야가 열린다</div></div>
+    </div>
+</div>
+
+</body>
+</html>

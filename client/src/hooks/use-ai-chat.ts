@@ -1,21 +1,22 @@
 import { useState } from "react";
 
 interface CrackTimeResponse {
-  insight: string;
-  map: string[];
+  html: string;
+  situation: string;
+  crackPoint: string;
+  userName: string;
+  date: string;
 }
 
 export function useCrackTime() {
   const [isLoading, setIsLoading] = useState(false);
-  const [insight, setInsight] = useState<string | null>(null);
-  const [actionMap, setActionMap] = useState<string[]>([]);
+  const [result, setResult] = useState<CrackTimeResponse | null>(null);
   const [fogInput, setFogInput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const sendMessage = async (content: string, userName?: string) => {
     setIsLoading(true);
-    setInsight(null);
-    setActionMap([]);
+    setResult(null);
     setFogInput(content);
     setError(null);
 
@@ -34,8 +35,7 @@ export function useCrackTime() {
         return;
       }
 
-      setInsight(data.insight);
-      setActionMap(data.map || []);
+      setResult(data);
     } catch (err) {
       console.error(err);
       setError('네트워크 오류가 발생했습니다.');
@@ -44,5 +44,11 @@ export function useCrackTime() {
     }
   };
 
-  return { sendMessage, isLoading, insight, actionMap, fogInput, error };
+  const reset = () => {
+    setResult(null);
+    setFogInput("");
+    setError(null);
+  };
+
+  return { sendMessage, isLoading, result, fogInput, error, reset };
 }

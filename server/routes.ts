@@ -9,6 +9,164 @@ import { registerImageRoutes } from "./replit_integrations/image";
 import { isAuthenticated } from "./replit_integrations/auth";
 import { GoogleGenAI } from "@google/genai";
 
+function generateCrackTimeHtml(name: string, date: string, situation: string, crackPoint: string): string {
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRACK TIME - ${date}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #FFF8E7 0%, #FFE4B5 30%, #FFECD2 70%, #FCB69F 100%);
+            font-family: 'Noto Sans KR', sans-serif;
+            color: #2D2D2D;
+        }
+        .page {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .page::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: 
+                radial-gradient(circle at 30% 20%, rgba(255, 200, 87, 0.4) 0%, transparent 30%),
+                radial-gradient(circle at 70% 30%, rgba(255, 165, 0, 0.3) 0%, transparent 25%);
+            animation: sunPulse 6s ease-in-out infinite;
+        }
+        @keyframes sunPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+        .page::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                linear-gradient(47deg, transparent 49%, rgba(255, 140, 0, 0.12) 49%, rgba(255, 140, 0, 0.12) 51%, transparent 51%),
+                linear-gradient(137deg, transparent 49%, rgba(255, 100, 50, 0.08) 49%, rgba(255, 100, 50, 0.08) 51%, transparent 51%);
+            background-size: 120px 120px, 180px 180px;
+        }
+        .card {
+            max-width: 600px; width: 95%;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 24px;
+            padding: 48px 36px;
+            position: relative;
+            border: 2px solid rgba(255, 140, 0, 0.3);
+            box-shadow: 0 20px 60px rgba(255, 140, 0, 0.15);
+            z-index: 1;
+        }
+        .crack-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, rgba(255, 140, 0, 0.7), transparent);
+            height: 2px;
+            animation: crackGlow 2s ease-in-out infinite;
+        }
+        .crack-line:nth-child(1) { top: 20%; left: -10%; width: 40%; transform: rotate(-15deg); }
+        .crack-line:nth-child(2) { top: 60%; right: -5%; width: 30%; transform: rotate(25deg); animation-delay: 0.5s; }
+        .crack-line:nth-child(3) { bottom: 30%; left: 10%; width: 25%; transform: rotate(-8deg); animation-delay: 1s; }
+        @keyframes crackGlow {
+            0%, 100% { opacity: 0.4; box-shadow: 0 0 15px rgba(255, 140, 0, 0.4); }
+            50% { opacity: 1; box-shadow: 0 0 25px rgba(255, 140, 0, 0.7); }
+        }
+        .header { text-align: center; margin-bottom: 40px; }
+        .head-icon { width: 80px; height: 80px; margin: 0 auto 20px; }
+        .head-icon svg { width: 100%; height: 100%; }
+        .logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3.5rem;
+            letter-spacing: 12px;
+            background: linear-gradient(135deg, #FF6B35 0%, #FF8C00 50%, #FFB347 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+        .date { font-size: 0.85rem; color: #FF8C00; letter-spacing: 3px; font-weight: 500; }
+        .name {
+            font-size: 2.2rem; font-weight: 700; text-align: center;
+            margin-bottom: 32px; position: relative; width: 100%; color: #333;
+        }
+        .name::after {
+            content: ''; position: absolute; bottom: -8px; left: 50%;
+            transform: translateX(-50%); width: 60px; height: 3px;
+            background: linear-gradient(90deg, transparent, #FF8C00, transparent);
+        }
+        .section { margin-bottom: 28px; }
+        .section-title { font-size: 0.75rem; color: #FF6B35; letter-spacing: 2px; margin-bottom: 12px; text-transform: uppercase; font-weight: 700; }
+        .content { font-size: 1rem; line-height: 1.8; color: #444; }
+        .insight {
+            background: linear-gradient(135deg, rgba(255, 140, 0, 0.15) 0%, rgba(255, 200, 100, 0.1) 100%);
+            border-left: 4px solid #FF8C00;
+            padding: 20px 24px;
+            border-radius: 0 16px 16px 0;
+            margin-top: 24px;
+        }
+        .insight-text { font-size: 1.05rem; line-height: 1.9; color: #333; font-weight: 500; }
+        .footer { text-align: center; margin-top: 36px; padding-top: 24px; border-top: 2px solid rgba(255, 140, 0, 0.2); }
+        .footer-text { font-size: 0.85rem; color: #FF6B35; font-weight: 500; }
+        .sparkle { position: absolute; width: 8px; height: 8px; background: #FFD700; border-radius: 50%; animation: sparkle 2s ease-in-out infinite; }
+        .sparkle:nth-child(4) { top: 15%; right: 20%; }
+        .sparkle:nth-child(5) { top: 40%; left: 15%; animation-delay: 0.5s; }
+        .sparkle:nth-child(6) { bottom: 20%; right: 25%; animation-delay: 1s; }
+        @keyframes sparkle { 0%, 100% { transform: scale(0.5); opacity: 0.3; } 50% { transform: scale(1.2); opacity: 1; } }
+        @media print {
+            .page { min-height: auto; padding: 20px; }
+            body { background: white; }
+            .page::before, .page::after { display: none; }
+            .sparkle { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="card">
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="crack-line"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="sparkle"></div>
+        <div class="header">
+            <div class="head-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                    <path d="M50 10 C25 10 15 35 15 50 C15 70 25 85 40 90 L40 95 L60 95 L60 90 C75 85 85 70 85 50 C85 35 75 10 50 10 Z" fill="rgba(255,140,0,0.15)" stroke="rgba(255,140,0,0.6)" stroke-width="2"/>
+                    <path d="M50 12 L48 28 L55 35 L47 48 L54 58 L50 70" stroke="#FF8C00" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <animate attributeName="stroke-opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M48 28 L38 35" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M55 35 L65 32" stroke="#FF8C00" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <path d="M47 48 L35 52" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M54 58 L68 55" stroke="#FF8C00" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <circle cx="50" cy="12" r="3" fill="#FFD700"><animate attributeName="r" values="2;4;2" dur="1.5s" repeatCount="indefinite"/></circle>
+                </svg>
+            </div>
+            <div class="logo">CRACK TIME</div>
+            <div class="date">${date}</div>
+        </div>
+        <h1 class="name">${name}</h1>
+        <div class="section">
+            <div class="section-title">현재 상황</div>
+            <div class="content">${situation}</div>
+        </div>
+        <div class="insight">
+            <div class="section-title">크랙 포인트</div>
+            <div class="insight-text">${crackPoint}</div>
+        </div>
+        <div class="footer"><div class="footer-text">머릿속에 금이 가는 순간, 새로운 시야가 열린다</div></div>
+    </div>
+</div>
+</body>
+</html>`;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -187,21 +345,22 @@ export async function registerRoutes(
       }
 
       const ai = new GoogleGenAI({ apiKey });
+      
+      const today = new Date();
+      const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+      const displayName = userName || '사용자';
 
-      const systemPrompt = `당신은 AGround의 성장 컨설턴트입니다. 크랙 타임은 사용자의 막연한 고민을 명확한 관점과 구체적인 실행 계획으로 바꿔주는 프로그램입니다.
+      const systemPrompt = `당신은 AGround의 성장 컨설턴트입니다. 크랙 타임은 대표님들을 위한 1장짜리 이미지 카드를 만들어주는 프로그램입니다.
+문제상황과 해결방식을 분석하여 "크랙 포인트"(관점의 전환)를 제시합니다.
+컨셉은 아침해와 명랑한 분위기입니다.
 
-당신의 역할:
-- 고민의 핵심을 꿰뚫는 날카로운 관점을 제시합니다
-- 사용자가 오늘 당장 실행할 수 있는 구체적인 액션 아이템을 제시합니다
-- 따뜻하지만 명확하게, 코치처럼 조언합니다
-
-응답은 반드시 아래의 JSON 형식으로만 작성하세요:
+중요: 반드시 아래의 JSON 형식으로만 응답하세요. 다른 텍스트를 포함하지 마세요.
 {
-  "insight": "고민의 핵심을 꿰뚫는 관점. 첫 문장은 강렬한 헤드라인으로, 나머지 1-2문장은 구체적 설명.",
-  "map": ["오늘 할 수 있는 구체적 액션 1", "오늘 할 수 있는 구체적 액션 2", "오늘 할 수 있는 구체적 액션 3"]
+  "situation": "현재 상황을 2-3문장으로 정리",
+  "crackPoint": "크랙 포인트 - 관점의 전환을 주는 핵심 인사이트. <strong>태그로 핵심 강조 가능. <br>태그로 줄바꿈 가능. 2-4문장."
 }`;
 
-      const userMessage = `${userName || '사용자'} 대표님의 현재의 안개(고민 상황): "${content}"`;
+      const userMessage = `${displayName} 대표님의 현재의 안개(고민 상황): "${content}"`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -213,18 +372,27 @@ export async function registerRoutes(
       const text = response.text || "";
       
       // Parse JSON from response
-      let result;
+      let parsed;
       try {
         const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        result = JSON.parse(cleanText);
+        parsed = JSON.parse(cleanText);
       } catch (e) {
-        result = {
-          insight: text,
-          map: ["다시 시도해주세요."]
+        parsed = {
+          situation: content,
+          crackPoint: text
         };
       }
 
-      res.json(result);
+      // Generate HTML card
+      const html = generateCrackTimeHtml(displayName, formattedDate, parsed.situation, parsed.crackPoint);
+
+      res.json({ 
+        html,
+        situation: parsed.situation,
+        crackPoint: parsed.crackPoint,
+        userName: displayName,
+        date: formattedDate
+      });
     } catch (error: any) {
       console.error("Crack Time error:", error);
       if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("API key")) {
