@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { 
   FolderOpen,
   LogOut, 
@@ -419,6 +420,7 @@ function BatchManager() {
   const [editingJournalId, setEditingJournalId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [showFolderDialog, setShowFolderDialog] = useState(false);
   
   const { data: members, isLoading: membersLoading } = useBatchMembers(selectedFolderId);
   const createMember = useCreateBatchMember();
@@ -549,25 +551,48 @@ function BatchManager() {
         </div>
         
         {!selectedFolderId && !selectedMemberId && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Input 
-              placeholder="새 기수 이름" 
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-40 rounded-xl bg-white/50 dark:bg-black/20"
-              data-testid="input-new-folder"
-            />
-            <Button 
-              onClick={handleCreateFolder}
-              disabled={createFolder.isPending}
-              className="rounded-xl bg-blue-500"
-              data-testid="button-create-folder"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              기수 추가
-            </Button>
-          </div>
+          <Button 
+            onClick={() => setShowFolderDialog(true)}
+            className="rounded-xl bg-blue-500"
+            data-testid="button-open-folder-dialog"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            기수 추가
+          </Button>
         )}
+
+        <Dialog open={showFolderDialog} onOpenChange={setShowFolderDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>새 기수 추가</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Input 
+                placeholder="기수 이름을 입력하세요 (예: AG 44기)" 
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                className="rounded-xl"
+                data-testid="input-new-folder"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setShowFolderDialog(false)}>
+                취소
+              </Button>
+              <Button 
+                onClick={() => {
+                  handleCreateFolder();
+                  setShowFolderDialog(false);
+                }}
+                disabled={createFolder.isPending || !newFolderName.trim()}
+                className="bg-blue-500"
+                data-testid="button-create-folder"
+              >
+                추가하기
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {selectedFolderId && !selectedMemberId && (
           <div className="flex items-center gap-2 flex-wrap">
