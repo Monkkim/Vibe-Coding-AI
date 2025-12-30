@@ -45,6 +45,10 @@ export interface IStorage extends IAuthStorage {
 
   // Users (for token sending)
   getAllUsers(): Promise<Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>[]>;
+
+  // Settings
+  updateUserSettings(userId: string, settings: { geminiApiKey?: string }): Promise<User>;
+  getUserGeminiApiKey(userId: string): Promise<string | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -162,6 +166,20 @@ export class DatabaseStorage implements IStorage {
       lastName: users.lastName,
       email: users.email,
     }).from(users);
+  }
+
+  // --- Settings ---
+  async updateUserSettings(userId: string, settings: { geminiApiKey?: string }): Promise<User> {
+    const [updated] = await db.update(users).set({ 
+      geminiApiKey: settings.geminiApiKey,
+      updatedAt: new Date() 
+    }).where(eq(users.id, userId)).returning();
+    return updated;
+  }
+
+  async getUserGeminiApiKey(userId: string): Promise<string | null> {
+    const [user] = await db.select({ geminiApiKey: users.geminiApiKey }).from(users).where(eq(users.id, userId));
+    return user?.geminiApiKey || null;
   }
 }
 

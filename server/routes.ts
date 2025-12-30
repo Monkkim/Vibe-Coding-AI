@@ -155,6 +155,20 @@ export async function registerRoutes(
     res.json(journals);
   });
 
+  // --- Settings ---
+  app.get(api.settings.get.path, isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const apiKey = await storage.getUserGeminiApiKey(userId);
+    res.json({ hasGeminiApiKey: !!apiKey });
+  });
+
+  app.put(api.settings.update.path, isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const { geminiApiKey } = req.body;
+    await storage.updateUserSettings(userId, { geminiApiKey });
+    res.json({ success: true });
+  });
+
   // --- Seed Data (Check if empty and seed) ---
   await seedDatabase();
 

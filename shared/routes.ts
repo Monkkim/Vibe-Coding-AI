@@ -140,6 +140,29 @@ export const api = {
       },
     },
   },
+  settings: {
+    get: {
+      method: 'GET' as const,
+      path: '/api/settings',
+      responses: {
+        200: z.object({
+          hasGeminiApiKey: z.boolean(),
+        }),
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/settings',
+      input: z.object({
+        geminiApiKey: z.string().optional(),
+      }),
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+        }),
+      },
+    },
+  },
   batchMembers: {
     list: {
       method: 'GET' as const,
