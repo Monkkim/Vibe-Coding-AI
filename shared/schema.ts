@@ -38,6 +38,7 @@ export const tokens = pgTable("tokens", {
   category: text("category").notNull(), // 'influence', 'growth', 'execution', 'camaraderie'
   message: text("message").notNull(),
   status: text("status").notNull().default("pending"), // 'pending', 'accepted'
+  batchId: integer("batch_id"), // Links to folders.id (batch)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
