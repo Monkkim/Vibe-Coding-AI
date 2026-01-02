@@ -5,13 +5,16 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Users, Plus, Trash2, LogOut, Gem, ChevronRight, Settings } from "lucide-react";
+import { Users, Plus, Trash2, LogOut, Gem, ChevronRight, Settings, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import type { Folder } from "@shared/schema";
+
+const DELETE_PASSWORD = "투쏠";
 
 export function BatchSelect() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -19,9 +22,13 @@ export function BatchSelect() {
   const { setSelectedBatch } = useBatch();
   const [, navigate] = useLocation();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
   const [newBatchName, setNewBatchName] = useState("");
   const createFolder = useCreateFolder();
   const deleteFolder = useDeleteFolder();
+  const { toast } = useToast();
 
   if (authLoading) {
     return (
@@ -58,8 +65,32 @@ export function BatchSelect() {
 
   const handleDeleteBatch = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    if (confirm("이 기수를 삭제하시겠습니까?")) {
-      deleteFolder.mutate(id);
+    setDeleteTargetId(id);
+    setDeletePassword("");
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (deletePassword !== DELETE_PASSWORD) {
+      toast({
+        title: "비밀번호 오류",
+        description: "비밀번호가 일치하지 않습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (deleteTargetId !== null) {
+      deleteFolder.mutate(deleteTargetId, {
+        onSuccess: () => {
+          setShowDeleteDialog(false);
+          setDeleteTargetId(null);
+          setDeletePassword("");
+          toast({
+            title: "삭제 완료",
+            description: "기수가 삭제되었습니다.",
+          });
+        },
+      });
     }
   };
 
@@ -194,6 +225,44 @@ export function BatchSelect() {
               data-testid="button-confirm-create-batch"
             >
               {createFolder.isPending ? "생성 중..." : "만들기"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              기수 삭제
+            </DialogTitle>
+            <DialogDescription>
+              이 기수를 삭제하면 모든 멤버 데이터도 함께 삭제됩니다.
+              삭제하려면 비밀번호를 입력하세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              type="password"
+              placeholder="비밀번호 입력"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && confirmDelete()}
+              data-testid="input-delete-password"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={!deletePassword || deleteFolder.isPending}
+              data-testid="button-confirm-delete-batch"
+            >
+              {deleteFolder.isPending ? "삭제 중..." : "삭제"}
             </Button>
           </DialogFooter>
         </DialogContent>
