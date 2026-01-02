@@ -12,7 +12,7 @@ export function Landing() {
 
   useEffect(() => {
     if (user && !isLoading) {
-      setLocation("/dashboard");
+      setLocation("/batches");
     }
   }, [user, isLoading, setLocation]);
 

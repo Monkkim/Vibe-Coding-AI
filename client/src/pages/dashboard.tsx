@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useFolders, useCreateFolder, useDeleteFolder, useBatchMembers, useCreateBatchMember, useDeleteBatchMember, useMemberJournals } from "@/hooks/use-folders";
 import { useCreateJournal, useUpdateJournal } from "@/hooks/use-journals";
+import { useBatch } from "@/contexts/BatchContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TokenGame } from "@/components/TokenGame";
 import { useCrackTime } from "@/hooks/use-ai-chat";
@@ -32,19 +33,43 @@ import {
   Pencil,
   X
 } from "lucide-react";
-import { Link } from "wouter";
-import { useState, useRef } from "react";
+import { Link, useLocation } from "wouter";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
   const { user, logout } = useAuth();
+  const { selectedBatch, clearBatch } = useBatch();
+  const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<"crack" | "token" | "batch">("crack");
+
+  useEffect(() => {
+    if (!selectedBatch) {
+      navigate("/batches");
+    }
+  }, [selectedBatch, navigate]);
+
+  if (!selectedBatch) {
+    return null;
+  }
+
+  const handleChangeBatch = () => {
+    clearBatch();
+    navigate("/batches");
+  };
 
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-amber-100">
       {/* Sidebar */}
-      <Sidebar setActiveTab={setActiveTab} activeTab={activeTab} onLogout={() => logout()} user={user} />
+      <Sidebar 
+        setActiveTab={setActiveTab} 
+        activeTab={activeTab} 
+        onLogout={() => logout()} 
+        user={user}
+        batchName={selectedBatch.name}
+        onChangeBatch={handleChangeBatch}
+      />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
@@ -53,7 +78,9 @@ export function Dashboard() {
             <h1 className="text-3xl font-display font-bold text-foreground">
               Hello, {user?.firstName || "Viber"}
             </h1>
-            <p className="text-muted-foreground">오늘도 한계를 돌파할 준비가 되셨나요?</p>
+            <p className="text-muted-foreground">
+              <span className="text-amber-600 font-medium">{selectedBatch.name}</span> 에서 한계를 돌파할 준비가 되셨나요?
+            </p>
           </div>
           <ThemeToggle />
         </header>
@@ -68,8 +95,8 @@ export function Dashboard() {
             className="w-full max-w-7xl mx-auto"
           >
             {activeTab === "crack" && <CrackTimeSection />}
-            {activeTab === "token" && <TokenGame />}
-            {activeTab === "batch" && <BatchManager />}
+            {activeTab === "token" && <TokenGame batchId={selectedBatch.id} />}
+            {activeTab === "batch" && <BatchManager selectedBatchId={selectedBatch.id} />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -81,28 +108,36 @@ function Sidebar({
   setActiveTab, 
   activeTab, 
   onLogout,
-  user 
+  user,
+  batchName,
+  onChangeBatch
 }: { 
   setActiveTab: (v: "crack" | "token" | "batch") => void, 
   activeTab: string,
   onLogout: () => void,
-  user: any
+  user: any,
+  batchName: string,
+  onChangeBatch: () => void
 }) {
   return (
     <aside className="w-64 glass border-r border-border hidden md:flex flex-col h-full z-10">
       <div className="p-6">
-        <div className="flex items-center gap-2 font-display font-bold text-xl text-primary mb-8">
+        <div className="flex items-center gap-2 font-display font-bold text-xl text-primary mb-4">
           <Gem className="w-6 h-6" />
           AGround
         </div>
+        
+        <button
+          onClick={onChangeBatch}
+          className="w-full flex items-center gap-2 p-3 rounded-lg bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 mb-6 hover-elevate"
+          data-testid="button-change-batch"
+        >
+          <Users className="w-4 h-4 text-amber-600" />
+          <span className="text-sm font-medium text-amber-700 dark:text-amber-400">{batchName}</span>
+          <ArrowLeft className="w-3 h-3 ml-auto text-amber-600" />
+        </button>
 
         <nav className="space-y-2">
-          <SidebarItem 
-            icon={<Users className="w-4 h-4" />} 
-            label="기수 관리" 
-            active={activeTab === "batch"}
-            onClick={() => setActiveTab("batch")}
-          />
           <SidebarItem 
             icon={<Sparkles className="w-4 h-4" />} 
             label="Crack Time" 
@@ -114,6 +149,12 @@ function Sidebar({
             label="Token Game" 
             active={activeTab === "token"}
             onClick={() => setActiveTab("token")}
+          />
+          <SidebarItem 
+            icon={<Users className="w-4 h-4" />} 
+            label="멤버 관리" 
+            active={activeTab === "batch"}
+            onClick={() => setActiveTab("batch")}
           />
         </nav>
       </div>
@@ -400,7 +441,7 @@ function CrackTimeSection() {
   );
 }
 
-function BatchManager() {
+function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
   const { data: folders } = useFolders();
   const createFolder = useCreateFolder();
   const deleteFolder = useDeleteFolder();
@@ -409,7 +450,7 @@ function BatchManager() {
   const createJournal = useCreateJournal();
   const updateJournal = useUpdateJournal();
   
-  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(selectedBatchId);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [selectedMemberName, setSelectedMemberName] = useState<string>("");
   const [newFolderName, setNewFolderName] = useState("");

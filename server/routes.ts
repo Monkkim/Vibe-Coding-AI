@@ -208,7 +208,8 @@ export async function registerRoutes(
 
   // --- Tokens ---
   app.get(api.tokens.list.path, async (req, res) => {
-    const tokens = await storage.getTokens();
+    const batchId = req.query.batchId ? Number(req.query.batchId) : undefined;
+    const tokens = await storage.getTokens(batchId);
     res.json(tokens);
   });
 

@@ -20,7 +20,7 @@ export interface IStorage extends IAuthStorage {
   deleteJournal(id: number): Promise<void>;
 
   // Tokens
-  getTokens(): Promise<Token[]>;
+  getTokens(batchId?: number): Promise<Token[]>;
   createToken(token: InsertToken): Promise<Token>;
   acceptToken(id: number): Promise<Token>;
 
@@ -90,7 +90,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // --- Tokens ---
-  async getTokens(): Promise<Token[]> {
+  async getTokens(batchId?: number): Promise<Token[]> {
+    if (batchId) {
+      return await db.select().from(tokens).where(eq(tokens.batchId, batchId)).orderBy(desc(tokens.createdAt));
+    }
     return await db.select().from(tokens).orderBy(desc(tokens.createdAt));
   }
 

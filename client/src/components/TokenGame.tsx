@@ -1,6 +1,6 @@
 import { useTokens, useCreateToken, useAcceptToken } from "@/hooks/use-tokens";
 import { useAuth } from "@/hooks/use-auth";
-import { useAllBatchMembers } from "@/hooks/use-folders";
+import { useBatchMembers } from "@/hooks/use-folders";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,8 +33,8 @@ const VALUE_CATEGORIES = [
   { value: "custom", label: "직접 입력", icon: Heart },
 ];
 
-export function TokenGame() {
-  const { data: tokens, isLoading } = useTokens();
+export function TokenGame({ batchId }: { batchId: number }) {
+  const { data: tokens, isLoading } = useTokens(batchId);
   const { user } = useAuth();
   const [showNotification, setShowNotification] = useState(false);
   const [showPendingDialogFromHeader, setShowPendingDialogFromHeader] = useState(false);
@@ -151,13 +151,14 @@ export function TokenGame() {
             pending={myStats.pending} 
             tokens={tokens} 
             user={user} 
+            batchId={batchId}
             openFromHeader={showPendingDialogFromHeader}
             onCloseFromHeader={() => setShowPendingDialogFromHeader(false)}
           />
         </div>
 
         <div className="lg:col-span-5">
-          <RecognizeValueForm user={user} />
+          <RecognizeValueForm user={user} batchId={batchId} />
         </div>
 
         <div className="lg:col-span-4 space-y-4">
@@ -256,14 +257,15 @@ function ProfileCard({ user, stats }: { user: any; stats: any }) {
   );
 }
 
-function PendingReceiveCard({ pending, tokens, user, openFromHeader, onCloseFromHeader }: { 
+function PendingReceiveCard({ pending, tokens, user, batchId, openFromHeader, onCloseFromHeader }: { 
   pending: number; 
   tokens: Token[] | undefined; 
   user: any;
+  batchId: number;
   openFromHeader?: boolean;
   onCloseFromHeader?: () => void;
 }) {
-  const acceptToken = useAcceptToken();
+  const acceptToken = useAcceptToken(batchId);
   const { toast } = useToast();
   const [showPendingDialog, setShowPendingDialog] = useState(false);
   
@@ -373,9 +375,9 @@ function PendingReceiveCard({ pending, tokens, user, openFromHeader, onCloseFrom
   );
 }
 
-function RecognizeValueForm({ user }: { user: any }) {
-  const { data: batchMembers, isLoading: membersLoading } = useAllBatchMembers();
-  const createToken = useCreateToken();
+function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
+  const { data: batchMembers, isLoading: membersLoading } = useBatchMembers(batchId);
+  const createToken = useCreateToken(batchId);
   const { toast } = useToast();
   
   const [recipient, setRecipient] = useState("");
