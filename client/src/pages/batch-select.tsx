@@ -14,7 +14,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Folder } from "@shared/schema";
 
-const DELETE_PASSWORD = "투쏠";
+const DELETE_PASSWORD = "12345678!";
 
 export function BatchSelect() {
   const { user, isLoading: authLoading, logout } = useAuth();
