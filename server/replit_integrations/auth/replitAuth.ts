@@ -35,6 +35,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: true,
+      sameSite: "lax" as const,
       maxAge: sessionTtl,
     },
   });
@@ -103,6 +104,7 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    console.log("[Auth] Login requested for hostname:", req.hostname);
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
@@ -111,10 +113,25 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
+    console.log("[Auth] Callback received for hostname:", req.hostname);
     ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any, info: any) => {
+      if (err) {
+        console.error("[Auth] Authentication error:", err);
+        return res.redirect("/?error=auth_error");
+      }
+      if (!user) {
+        console.error("[Auth] No user returned, info:", info);
+        return res.redirect("/?error=no_user");
+      }
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error("[Auth] Login error:", loginErr);
+          return res.redirect("/?error=login_error");
+        }
+        console.log("[Auth] Login successful, redirecting to /");
+        return res.redirect("/");
+      });
     })(req, res, next);
   });
 
