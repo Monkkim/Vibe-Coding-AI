@@ -3,10 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { isAuthenticated } from "./replit_integrations/auth";
 import { GoogleGenAI } from "@google/genai";
 
 function generateCrackTimeHtml(name: string, date: string, situation: string, crackPoint: string): string {
@@ -172,7 +171,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   // 1. Setup Auth (Must be first)
-  await setupAuth(app);
+  setupAuth(app);
   registerAuthRoutes(app);
 
   // 2. Setup AI (Chat & Image)
@@ -183,14 +182,14 @@ export async function registerRoutes(
 
   // --- Journals ---
   app.get(api.journals.list.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     const journals = await storage.getJournals(userId);
     res.json(journals);
   });
 
   app.post(api.journals.create.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
-    const input = api.journals.create.input.parse({ ...req.body, userId }); // Force userId
+    const userId = req.user.id;
+    const input = api.journals.create.input.parse({ ...req.body, userId });
     const journal = await storage.createJournal(input);
     res.status(201).json(journal);
   });
@@ -214,15 +213,15 @@ export async function registerRoutes(
   });
 
   app.post(api.tokens.create.path, isAuthenticated, async (req: any, res) => {
-    const fromUserId = req.user.claims.sub;
+    const fromUserId = req.user.id;
     const input = api.tokens.create.input.parse({ ...req.body, fromUserId });
     const token = await storage.createToken(input);
     res.status(201).json(token);
   });
 
   app.post(api.tokens.accept.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
-    const user = await storage.getUser(userId);
+    const userId = req.user.id;
+    const user = req.user;
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
@@ -317,13 +316,13 @@ export async function registerRoutes(
 
   // --- Settings ---
   app.get(api.settings.get.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     const apiKey = await storage.getUserGeminiApiKey(userId);
     res.json({ hasGeminiApiKey: !!apiKey });
   });
 
   app.put(api.settings.update.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     const { geminiApiKey } = req.body;
     await storage.updateUserSettings(userId, { geminiApiKey });
     res.json({ success: true });
@@ -332,8 +331,8 @@ export async function registerRoutes(
   // --- Crack Time with User's API Key ---
   app.post("/api/crack-time", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.id;
+      const user = req.user;
       const apiKey = await storage.getUserGeminiApiKey(userId);
       
       if (!apiKey) {
