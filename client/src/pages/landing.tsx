@@ -58,7 +58,7 @@ export function Landing() {
               className="h-14 px-8 rounded-full text-lg bg-white/20 dark:bg-white/10 backdrop-blur-md border border-white/30 text-foreground hover:bg-white/30 dark:hover:bg-white/20 shadow-xl hover:scale-105 transition-all duration-300"
               asChild
             >
-              <a href="/api/login">
+              <a href="/login" data-testid="button-login">
                 입장하기 <ArrowRight className="ml-2 w-5 h-5" />
               </a>
             </Button>
