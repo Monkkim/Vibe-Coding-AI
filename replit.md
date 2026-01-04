@@ -74,9 +74,9 @@ Preferred communication style: Simple, everyday language.
   - Requires `SESSION_SECRET` environment variable
   - User sessions stored in PostgreSQL
 
-### Password Recovery (TODO)
-- Currently shows temporary password directly on screen (development mode)
-- **Future improvement**: Set up email service (Resend, SendGrid, etc.) to send temporary passwords via email for production use
+### Password Recovery
+- Uses Resend email service to send temporary passwords via email
+- Requires `RESEND_API_KEY` environment variable
 
 ### Database
 - **PostgreSQL**: Primary data store

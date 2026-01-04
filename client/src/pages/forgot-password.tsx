@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Gem, Loader2, CheckCircle, ArrowLeft } from "lucide-react";
+import { Gem, Loader2, CheckCircle, ArrowLeft, Mail } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 
 export function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
   const forgotPassword = useForgotPassword();
   const { toast } = useToast();
 
@@ -30,11 +29,8 @@ export function ForgotPassword() {
     }
 
     try {
-      const result = await forgotPassword.mutateAsync(email);
+      await forgotPassword.mutateAsync(email);
       setIsSubmitted(true);
-      if (result.tempPassword) {
-        setTempPassword(result.tempPassword);
-      }
     } catch (error: any) {
       toast({
         title: "오류",
@@ -73,24 +69,15 @@ export function ForgotPassword() {
           {isSubmitted ? (
             <div className="text-center space-y-4">
               <div className="flex justify-center">
-                <CheckCircle className="w-16 h-16 text-green-500" />
+                <Mail className="w-16 h-16 text-amber-500" />
               </div>
-              {tempPassword ? (
-                <div className="space-y-2">
-                  <p className="text-muted-foreground">임시 비밀번호가 발급되었습니다:</p>
-                  <div className="bg-muted p-4 rounded-md">
-                    <code className="text-lg font-mono font-bold" data-testid="text-temp-password">{tempPassword}</code>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    이 비밀번호로 로그인 후 새 비밀번호로 변경해주세요.
-                  </p>
-                </div>
-              ) : (
+              <div className="space-y-2">
+                <p className="text-foreground font-medium">이메일이 발송되었습니다</p>
                 <p className="text-muted-foreground">
-                  입력하신 이메일로 임시 비밀번호가 발송되었습니다.
+                  입력하신 이메일로 임시 비밀번호가 발송되었습니다.<br />
                   이메일을 확인해주세요.
                 </p>
-              )}
+              </div>
               <Link href="/login">
                 <Button variant="outline" className="mt-4" data-testid="button-back-to-login">
                   <ArrowLeft className="mr-2 h-4 w-4" />

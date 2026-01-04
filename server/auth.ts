@@ -6,6 +6,7 @@ import { db } from "./db";
 import { users, type User } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { Resend } from "resend";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -195,12 +196,35 @@ export function registerAuthRoutes(app: Express) {
       const tempPassword = generateTempPassword();
       await updateUserPassword(user.id, tempPassword);
 
-      console.log(`[Password Recovery] User ${email} - Temp password: ${tempPassword}`);
+      if (process.env.RESEND_API_KEY) {
+        try {
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          await resend.emails.send({
+            from: "AGround <onboarding@resend.dev>",
+            to: email,
+            subject: "[AGround] 임시 비밀번호 안내",
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #f59e0b;">AGround 비밀번호 찾기</h2>
+                <p>안녕하세요,</p>
+                <p>요청하신 임시 비밀번호입니다:</p>
+                <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                  <code style="font-size: 24px; font-weight: bold; color: #1f2937;">${tempPassword}</code>
+                </div>
+                <p>이 비밀번호로 로그인 후 새 비밀번호로 변경해주세요.</p>
+                <p style="color: #6b7280; font-size: 14px;">본인이 요청하지 않은 경우 이 메일을 무시해주세요.</p>
+              </div>
+            `,
+          });
+          console.log(`[Password Recovery] Email sent to ${email}`);
+        } catch (emailError) {
+          console.error("[Password Recovery] Email send failed:", emailError);
+        }
+      }
 
       res.json({ 
         message: "입력하신 이메일로 임시 비밀번호가 발송되었습니다.",
-        success: true,
-        tempPassword: tempPassword
+        success: true
       });
     } catch (error) {
       console.error("Forgot password error:", error);
