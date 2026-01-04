@@ -67,9 +67,16 @@ Preferred communication style: Simple, everyday language.
   - Used for "Crack Time" AI problem-solving and image generation
 
 ### Authentication
-- **Replit Auth**: OpenID Connect-based authentication
-  - Requires `ISSUER_URL`, `REPL_ID`, and `SESSION_SECRET` environment variables
+- **Email/Password Authentication**: Custom authentication system
+  - Login, signup, and password recovery endpoints
+  - Password hashing with bcrypt
+  - Session management via express-session with PostgreSQL store
+  - Requires `SESSION_SECRET` environment variable
   - User sessions stored in PostgreSQL
+
+### Password Recovery (TODO)
+- Currently shows temporary password directly on screen (development mode)
+- **Future improvement**: Set up email service (Resend, SendGrid, etc.) to send temporary passwords via email for production use
 
 ### Database
 - **PostgreSQL**: Primary data store
