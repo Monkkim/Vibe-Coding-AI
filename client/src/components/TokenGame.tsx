@@ -35,10 +35,20 @@ const VALUE_CATEGORIES = [
 
 export function TokenGame({ batchId }: { batchId: number }) {
   const { data: tokens, isLoading } = useTokens(batchId);
+  const { data: batchMembers } = useBatchMembers(batchId);
   const { user } = useAuth();
   const [showNotification, setShowNotification] = useState(false);
   const [showPendingDialogFromHeader, setShowPendingDialogFromHeader] = useState(false);
   const prevPendingCountRef = useRef(0);
+  
+  // Find batch member names that match the current user's email
+  const myBatchMemberNames = useMemo(() => {
+    if (!batchMembers || !user?.email) return [];
+    const userEmail = user.email.toLowerCase();
+    return batchMembers
+      .filter(m => m.email?.toLowerCase() === userEmail)
+      .map(m => m.name.toLowerCase());
+  }, [batchMembers, user?.email]);
   
   const myStats = useMemo(() => {
     if (!tokens || !user) return { received: 0, given: 0, pending: 0, pendingCount: 0, today: 0, thisWeek: 0, cumulative: 0, latestPendingSender: null as string | null };
@@ -48,12 +58,34 @@ export function TokenGame({ batchId }: { batchId: number }) {
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
     
+    const userEmail = user.email?.toLowerCase();
     const userIdentifiers = [
       user.firstName,
       user.email,
       user.id,
       `${user.firstName} ${user.lastName}`.trim()
     ].filter(Boolean);
+    
+    // Check if token is for the current user by name, email, or batch member name
+    const isTokenForMe = (t: Token) => {
+      // Check receiverEmail matches user's email (most reliable)
+      if (t.receiverEmail && userEmail && t.receiverEmail.toLowerCase() === userEmail) {
+        return true;
+      }
+      // Check toUserId matches user id
+      if (t.toUserId === user.id) {
+        return true;
+      }
+      // Check receiverName matches any batch member with the same email as user
+      if (t.receiverName && myBatchMemberNames.includes(t.receiverName.toLowerCase())) {
+        return true;
+      }
+      // Check receiverName matches any of user's identifiers
+      if (t.receiverName && userIdentifiers.some(id => id?.toLowerCase() === t.receiverName?.toLowerCase())) {
+        return true;
+      }
+      return false;
+    };
     
     const isMe = (name: string | null | undefined) => 
       name && userIdentifiers.some(id => id?.toLowerCase() === name.toLowerCase());
@@ -62,7 +94,7 @@ export function TokenGame({ batchId }: { batchId: number }) {
     let latestPendingSender: string | null = null;
     
     tokens.forEach((t: Token) => {
-      if (isMe(t.receiverName) || t.toUserId === user.id) {
+      if (isTokenForMe(t)) {
         if (t.status === "pending") {
           pending += t.amount;
           pendingCount++;
@@ -80,7 +112,7 @@ export function TokenGame({ batchId }: { batchId: number }) {
     });
     
     return { received, given, pending, pendingCount, today, thisWeek, cumulative, latestPendingSender };
-  }, [tokens, user]);
+  }, [tokens, user, myBatchMemberNames]);
 
   const leaderboard = useMemo(() => {
     if (!tokens) return [];
@@ -152,6 +184,7 @@ export function TokenGame({ batchId }: { batchId: number }) {
             tokens={tokens} 
             user={user} 
             batchId={batchId}
+            myBatchMemberNames={myBatchMemberNames}
             openFromHeader={showPendingDialogFromHeader}
             onCloseFromHeader={() => setShowPendingDialogFromHeader(false)}
           />
@@ -257,11 +290,12 @@ function ProfileCard({ user, stats }: { user: any; stats: any }) {
   );
 }
 
-function PendingReceiveCard({ pending, tokens, user, batchId, openFromHeader, onCloseFromHeader }: { 
+function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames, openFromHeader, onCloseFromHeader }: { 
   pending: number; 
   tokens: Token[] | undefined; 
   user: any;
   batchId: number;
+  myBatchMemberNames: string[];
   openFromHeader?: boolean;
   onCloseFromHeader?: () => void;
 }) {
@@ -278,6 +312,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, openFromHeader, on
     }
   };
   
+  const userEmail = user?.email?.toLowerCase();
   const userIdentifiers = user ? [
     user.firstName,
     user.email,
@@ -285,11 +320,29 @@ function PendingReceiveCard({ pending, tokens, user, batchId, openFromHeader, on
     `${user.firstName} ${user.lastName}`.trim()
   ].filter(Boolean) : [];
   
-  const isMe = (name: string | null | undefined) => 
-    name && userIdentifiers.some(id => id?.toLowerCase() === name.toLowerCase());
+  // Check if token is for the current user by name, email, or batch member name
+  const isTokenForMe = (t: Token) => {
+    // Check receiverEmail matches user's email (most reliable)
+    if (t.receiverEmail && userEmail && t.receiverEmail.toLowerCase() === userEmail) {
+      return true;
+    }
+    // Check toUserId matches user id
+    if (t.toUserId === user?.id) {
+      return true;
+    }
+    // Check receiverName matches any batch member with the same email as user
+    if (t.receiverName && myBatchMemberNames.includes(t.receiverName.toLowerCase())) {
+      return true;
+    }
+    // Check receiverName matches any of user's identifiers
+    if (t.receiverName && userIdentifiers.some(id => id?.toLowerCase() === t.receiverName?.toLowerCase())) {
+      return true;
+    }
+    return false;
+  };
   
   const pendingTokens = tokens?.filter(
-    (t: Token) => (isMe(t.receiverName) || t.toUserId === user?.id) && t.status === "pending"
+    (t: Token) => isTokenForMe(t) && t.status === "pending"
   ) || [];
 
   const handleAccept = (tokenId: number, amount: number) => {
@@ -449,10 +502,15 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
 
     const message = category === "custom" ? customMessage : VALUE_CATEGORIES.find(c => c.value === category)?.label || "";
     
+    // Find the selected member to get their email
+    const selectedMember = batchMembers?.find(m => m.name === recipient);
+    const receiverEmail = selectedMember?.email || null;
+    
     createToken.mutate({
       fromUserId: user?.id || "",
       toUserId: recipient,
       receiverName: recipient,
+      receiverEmail: receiverEmail,
       senderName: user?.firstName || user?.email || "Unknown",
       amount: finalAmount,
       category,

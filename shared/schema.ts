@@ -33,6 +33,7 @@ export const tokens = pgTable("tokens", {
   fromUserId: varchar("from_user_id").notNull(),
   toUserId: varchar("to_user_id").notNull(), // Can be batch member name or user id
   receiverName: text("receiver_name").notNull(), // Display name
+  receiverEmail: text("receiver_email"), // For matching with user's email
   senderName: text("sender_name").notNull(), // Display name
   amount: integer("amount").notNull().default(10000), // Amount in won (만원 unit)
   category: text("category").notNull(), // 'influence', 'growth', 'execution', 'camaraderie'
