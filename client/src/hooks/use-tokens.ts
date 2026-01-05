@@ -27,7 +27,10 @@ export function useCreateToken(batchId?: number) {
       if (!res.ok) throw new Error("토큰 발행에 실패했습니다.");
       return res.json() as Promise<Token>;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/tokens', batchId] }),
+    onSuccess: () => {
+      // Force refetch all token queries to update stats
+      queryClient.invalidateQueries({ queryKey: ['/api/tokens'] });
+    },
   });
 }
 
@@ -42,6 +45,9 @@ export function useAcceptToken(batchId?: number) {
       if (!res.ok) throw new Error("토큰 수령에 실패했습니다.");
       return res.json() as Promise<Token>;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/tokens', batchId] }),
+    onSuccess: () => {
+      // Force refetch all token queries to update stats
+      queryClient.invalidateQueries({ queryKey: ['/api/tokens'] });
+    },
   });
 }

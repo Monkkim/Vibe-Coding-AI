@@ -303,6 +303,8 @@ function PendingReceiveCard({ pending, tokens, user, batchId, openFromHeader, on
     });
   };
 
+  const latestToken = pendingTokens[0];
+
   return (
     <>
       <Card 
@@ -311,19 +313,43 @@ function PendingReceiveCard({ pending, tokens, user, batchId, openFromHeader, on
       >
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Gift className="w-5 h-5" />
-            <span className="font-semibold">받기 대기</span>
+            <Mail className="w-5 h-5" />
+            <span className="font-semibold">도착한 토큰</span>
+            {pendingTokens.length > 0 && (
+              <span className="bg-white/30 rounded-full px-2 py-0.5 text-xs">{pendingTokens.length}통</span>
+            )}
           </div>
           <p className="text-4xl font-bold">{(pending / 10000).toFixed(0)}만원</p>
           <p className="text-pink-100 text-sm mt-1">아직 확정되지 않은 가치</p>
-          {pendingTokens.length > 0 && (
+          
+          {latestToken && (
+            <div className="mt-4 p-3 bg-white/20 rounded-lg text-left">
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="w-4 h-4 flex-shrink-0" />
+                <span className="font-semibold">{latestToken.senderName}</span>
+                <span className="text-pink-100">님이</span>
+                <span className="font-bold">{(latestToken.amount / 10000).toFixed(0)}만원</span>
+              </div>
+              <Button
+                onClick={() => handleAccept(latestToken.id, latestToken.amount)}
+                disabled={acceptToken.isPending}
+                className="mt-3 w-full bg-white text-pink-600 hover:bg-pink-50"
+                data-testid="button-quick-accept"
+              >
+                <Heart className="w-4 h-4 mr-1" />
+                감사히 받기
+              </Button>
+            </div>
+          )}
+          
+          {pendingTokens.length > 1 && (
             <Button
               onClick={() => setShowPendingDialog(true)}
-              className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white border border-white/30"
+              variant="ghost"
+              className="mt-2 text-white hover:bg-white/20"
               data-testid="button-check-pending"
             >
-              <Gift className="w-4 h-4 mr-2" />
-              받은 가치 확인하기
+              +{pendingTokens.length - 1}개 더 보기
             </Button>
           )}
         </div>
@@ -350,10 +376,22 @@ function PendingReceiveCard({ pending, tokens, user, batchId, openFromHeader, on
                   className="p-4 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 rounded-lg border border-pink-200/50 dark:border-pink-800/30"
                 >
                   <div className="space-y-3">
-                    <p className="text-foreground leading-relaxed">
-                      {token.message || "가치를 인정받았습니다"}
-                    </p>
-                    <div className="flex justify-end">
+                    <div className="flex items-center gap-2 text-pink-600 dark:text-pink-400">
+                      <Mail className="w-4 h-4" />
+                      <span className="font-semibold">{token.senderName || "익명"}</span>
+                      <span className="text-muted-foreground">님이</span>
+                      <span className="font-bold text-lg">{(token.amount / 10000).toFixed(0)}만원</span>
+                      <span className="text-muted-foreground">을 보냈습니다</span>
+                    </div>
+                    {token.message && (
+                      <p className="text-foreground text-sm bg-white/50 dark:bg-black/20 p-3 rounded-lg italic">
+                        "{token.message}"
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(token.createdAt), "MM/dd HH:mm")}
+                      </span>
                       <Button
                         onClick={() => handleAccept(token.id, token.amount)}
                         disabled={acceptToken.isPending}
@@ -361,7 +399,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, openFromHeader, on
                         data-testid={`button-accept-${token.id}`}
                       >
                         <Heart className="w-4 h-4 mr-1" />
-                        받기
+                        감사히 받기
                       </Button>
                     </div>
                   </div>
