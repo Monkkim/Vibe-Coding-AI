@@ -55,6 +55,8 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const isInitialized = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -63,6 +65,7 @@ export function RichTextEditor({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [resizingImage, setResizingImage] = useState<HTMLImageElement | null>(null);
   const lastEmptyListEnter = useRef(false);
+  const savedSelection = useRef<Range | null>(null);
   const { toast } = useToast();
   
   const { uploadFile, isUploading } = useUpload({
@@ -97,6 +100,15 @@ export function RichTextEditor({
   useEffect(() => {
     setSelectedIndex(0);
   }, [slashFilter, showSlashMenu]);
+
+  useEffect(() => {
+    if (showSlashMenu && menuItemRefs.current[selectedIndex]) {
+      menuItemRefs.current[selectedIndex]?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth"
+      });
+    }
+  }, [selectedIndex, showSlashMenu]);
 
   const checkEmpty = useCallback(() => {
     if (editorRef.current) {
@@ -260,16 +272,26 @@ export function RichTextEditor({
     setShowSlashMenu(false);
     setSlashFilter("");
     
-    deleteSlashCommand();
+    editorRef.current?.focus();
     
-    if (cmd.isList) {
-      document.execCommand(cmd.ordered ? "insertOrderedList" : "insertUnorderedList", false);
-    } else {
-      document.execCommand("formatBlock", false, cmd.tag);
+    if (savedSelection.current) {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(savedSelection.current);
+      }
     }
     
-    syncContent();
-    editorRef.current?.focus();
+    deleteSlashCommand();
+    
+    setTimeout(() => {
+      if (cmd.isList) {
+        document.execCommand(cmd.ordered ? "insertOrderedList" : "insertUnorderedList", false);
+      } else {
+        document.execCommand("formatBlock", false, cmd.tag);
+      }
+      syncContent();
+    }, 0);
   }, [deleteSlashCommand, syncContent]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -360,6 +382,7 @@ export function RichTextEditor({
       if (pos > 0 && text[pos - 1] === "/") {
         const coords = getCaretCoords();
         if (coords) {
+          savedSelection.current = range.cloneRange();
           setSlashMenuPosition(coords);
           setShowSlashMenu(true);
           setSlashFilter("");
@@ -520,10 +543,14 @@ export function RichTextEditor({
                 filteredCommands.map((cmd, idx) => (
                   <button
                     key={cmd.id}
+                    ref={(el) => { menuItemRefs.current[idx] = el; }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
                       idx === selectedIndex ? "bg-accent" : "hover:bg-muted/50"
                     }`}
-                    onClick={() => applyBlockFormat(cmd)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      applyBlockFormat(cmd);
+                    }}
                   >
                     <div className="w-8 h-8 flex items-center justify-center rounded bg-muted/50">
                       <cmd.icon className="w-4 h-4 text-muted-foreground" />
