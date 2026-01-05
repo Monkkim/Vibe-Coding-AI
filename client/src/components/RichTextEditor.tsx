@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -30,12 +30,11 @@ interface RichTextEditorProps {
 }
 
 const FONT_SIZES = [
-  { label: "작게", value: "12px", class: "text-xs" },
-  { label: "보통", value: "14px", class: "text-sm" },
-  { label: "중간", value: "16px", class: "text-base" },
-  { label: "크게", value: "18px", class: "text-lg" },
-  { label: "매우 크게", value: "24px", class: "text-2xl" },
-  { label: "제목", value: "32px", class: "text-3xl" },
+  { label: "작게", value: "1", displaySize: "12px" },
+  { label: "보통", value: "3", displaySize: "16px" },
+  { label: "크게", value: "5", displaySize: "20px" },
+  { label: "매우 크게", value: "6", displaySize: "24px" },
+  { label: "제목", value: "7", displaySize: "32px" },
 ];
 
 export function RichTextEditor({
@@ -47,7 +46,8 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [currentFontSize, setCurrentFontSize] = useState("16px");
+  const isInitialized = useRef(false);
+  const [isEmpty, setIsEmpty] = useState(!value);
   const { toast } = useToast();
   const { uploadFile, isUploading } = useUpload({
     onSuccess: (response) => {
@@ -62,55 +62,41 @@ export function RichTextEditor({
     },
   });
 
-  const execCommand = useCallback((command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    editorRef.current?.focus();
-    updateContent();
-  }, []);
+  useEffect(() => {
+    if (editorRef.current && !isInitialized.current) {
+      editorRef.current.innerHTML = value;
+      isInitialized.current = true;
+      setIsEmpty(!value || value === "<br>" || value.trim() === "");
+    }
+  }, [value]);
 
   const updateContent = useCallback(() => {
     if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
+      const content = editorRef.current.innerHTML;
+      const textContent = editorRef.current.textContent || "";
+      setIsEmpty(!textContent.trim() && !content.includes("<img"));
+      onChange(content);
     }
   }, [onChange]);
 
-  const handleFontSize = useCallback((size: string) => {
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      if (!range.collapsed) {
-        const span = document.createElement("span");
-        span.style.fontSize = size;
-        range.surroundContents(span);
-        updateContent();
-      }
-    }
-    setCurrentFontSize(size);
+  const execCommand = useCallback((command: string, value?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, value);
+    updateContent();
+  }, [updateContent]);
+
+  const handleFontSize = useCallback((sizeValue: string) => {
+    editorRef.current?.focus();
+    document.execCommand("fontSize", false, sizeValue);
+    updateContent();
   }, [updateContent]);
 
   const insertImage = useCallback((src: string) => {
-    const img = document.createElement("img");
-    img.src = src;
-    img.style.maxWidth = "100%";
-    img.style.height = "auto";
-    img.style.borderRadius = "8px";
-    img.style.margin = "8px 0";
+    if (!editorRef.current) return;
     
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      range.deleteContents();
-      range.insertNode(img);
-      range.setStartAfter(img);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    } else if (editorRef.current) {
-      editorRef.current.appendChild(img);
-    }
-    
+    editorRef.current.focus();
+    document.execCommand("insertImage", false, src);
     updateContent();
-    editorRef.current?.focus();
   }, [updateContent]);
 
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
@@ -152,8 +138,6 @@ export function RichTextEditor({
     e.preventDefault();
   }, []);
 
-  const currentSizeLabel = FONT_SIZES.find(s => s.value === currentFontSize)?.label || "보통";
-
   return (
     <div className={`border rounded-xl overflow-hidden bg-white/50 dark:bg-black/20 ${className}`}>
       <div className="flex items-center gap-1 p-2 border-b bg-muted/30 flex-wrap">
@@ -166,7 +150,7 @@ export function RichTextEditor({
               data-testid="button-font-size"
             >
               <Type className="w-4 h-4" />
-              <span className="text-xs">{currentSizeLabel}</span>
+              <span className="text-xs">크기</span>
               <ChevronDown className="w-3 h-3" />
             </Button>
           </DropdownMenuTrigger>
@@ -175,7 +159,7 @@ export function RichTextEditor({
               <DropdownMenuItem
                 key={size.value}
                 onClick={() => handleFontSize(size.value)}
-                className={size.class}
+                style={{ fontSize: size.displaySize }}
                 data-testid={`menu-font-size-${size.value}`}
               >
                 {size.label}
@@ -255,32 +239,40 @@ export function RichTextEditor({
         />
       </div>
 
-      <div
-        ref={editorRef}
-        contentEditable
-        className="p-4 outline-none prose prose-sm dark:prose-invert max-w-none"
-        style={{ minHeight }}
-        onInput={updateContent}
-        onPaste={handlePaste}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        dangerouslySetInnerHTML={{ __html: value }}
-        data-placeholder={placeholder}
-        data-testid="editor-content"
-      />
+      <div className="relative">
+        {isEmpty && (
+          <div 
+            className="absolute top-4 left-4 text-muted-foreground pointer-events-none"
+            aria-hidden="true"
+          >
+            {placeholder}
+          </div>
+        )}
+        <div
+          ref={editorRef}
+          contentEditable
+          className="p-4 outline-none min-h-[150px]"
+          style={{ minHeight }}
+          onInput={updateContent}
+          onPaste={handlePaste}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          data-testid="editor-content"
+        />
+      </div>
 
       <style>{`
-        [data-testid="editor-content"]:empty:before {
-          content: attr(data-placeholder);
-          color: hsl(var(--muted-foreground));
-          pointer-events: none;
-        }
         [data-testid="editor-content"] img {
           max-width: 100%;
           height: auto;
           border-radius: 8px;
           margin: 8px 0;
         }
+        [data-testid="editor-content"] font[size="1"] { font-size: 12px; }
+        [data-testid="editor-content"] font[size="3"] { font-size: 16px; }
+        [data-testid="editor-content"] font[size="5"] { font-size: 20px; }
+        [data-testid="editor-content"] font[size="6"] { font-size: 24px; }
+        [data-testid="editor-content"] font[size="7"] { font-size: 32px; }
       `}</style>
     </div>
   );
