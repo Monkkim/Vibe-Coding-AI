@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useFolders, useCreateFolder, useDeleteFolder } from "@/hooks/use-folders";
+import { useFolders, useCreateFolder, useDeleteFolder, useMembershipStatus, useJoinBatch } from "@/hooks/use-folders";
 import { useBatch } from "@/contexts/BatchContext";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Users, Plus, Trash2, LogOut, Gem, ChevronRight, Settings, AlertTriangle } from "lucide-react";
-import { useState } from "react";
+import { Users, Plus, Trash2, LogOut, Gem, ChevronRight, Settings, AlertTriangle, UserPlus, Check } from "lucide-react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -23,12 +23,24 @@ export function BatchSelect() {
   const [, navigate] = useLocation();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [selectedBatchForJoin, setSelectedBatchForJoin] = useState<Folder | null>(null);
+  const [displayName, setDisplayName] = useState("");
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const [newBatchName, setNewBatchName] = useState("");
   const createFolder = useCreateFolder();
   const deleteFolder = useDeleteFolder();
+  const joinBatch = useJoinBatch();
   const { toast } = useToast();
+
+  const { data: membershipStatus, isLoading: membershipLoading } = useMembershipStatus(selectedBatchForJoin?.id || null);
+
+  useEffect(() => {
+    if (user) {
+      setDisplayName(`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || '');
+    }
+  }, [user]);
 
   if (authLoading) {
     return (
@@ -45,9 +57,45 @@ export function BatchSelect() {
 
   const batches = folders?.filter((f: Folder) => f.type === "batch") || [];
 
-  const handleSelectBatch = (batch: Folder) => {
-    setSelectedBatch(batch);
-    navigate("/dashboard");
+  const handleSelectBatch = async (batch: Folder) => {
+    setSelectedBatchForJoin(batch);
+    setShowJoinDialog(true);
+  };
+
+  const handleJoinOrEnter = () => {
+    if (!selectedBatchForJoin) return;
+    
+    if (membershipStatus?.isMember) {
+      setSelectedBatch(selectedBatchForJoin);
+      setShowJoinDialog(false);
+      navigate("/dashboard");
+    } else {
+      joinBatch.mutate(
+        { 
+          folderId: selectedBatchForJoin.id, 
+          displayName: displayName.trim() || `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
+          claimMemberId: membershipStatus?.claimableMember?.id
+        },
+        {
+          onSuccess: () => {
+            setSelectedBatch(selectedBatchForJoin);
+            setShowJoinDialog(false);
+            toast({
+              title: "가입 완료",
+              description: `${selectedBatchForJoin.name}에 가입되었습니다.`,
+            });
+            navigate("/dashboard");
+          },
+          onError: (error: any) => {
+            toast({
+              title: "가입 실패",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
+        }
+      );
+    }
   };
 
   const handleCreateBatch = () => {
@@ -263,6 +311,76 @@ export function BatchSelect() {
               data-testid="button-confirm-delete-batch"
             >
               {deleteFolder.isPending ? "삭제 중..." : "삭제"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showJoinDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowJoinDialog(false);
+          setSelectedBatchForJoin(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {membershipStatus?.isMember ? (
+                <>
+                  <Check className="w-5 h-5 text-green-500" />
+                  {selectedBatchForJoin?.name}
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-5 h-5" />
+                  {selectedBatchForJoin?.name} 가입
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {membershipLoading ? (
+                "멤버십 상태를 확인하는 중..."
+              ) : membershipStatus?.isMember ? (
+                `${membershipStatus.member?.name}님으로 등록되어 있습니다.`
+              ) : membershipStatus?.claimableMember ? (
+                `${membershipStatus.claimableMember.name}(으)로 등록된 프로필이 있습니다. 연결하시겠습니까?`
+              ) : (
+                "이 기수에 처음 가입하시네요. 표시할 이름을 입력해주세요."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {!membershipLoading && !membershipStatus?.isMember && !membershipStatus?.claimableMember && (
+            <div className="py-4">
+              <Input
+                placeholder="표시 이름"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleJoinOrEnter()}
+                data-testid="input-display-name"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                가입 후에도 이름을 변경할 수 있습니다.
+              </p>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowJoinDialog(false);
+              setSelectedBatchForJoin(null);
+            }}>
+              취소
+            </Button>
+            <Button
+              onClick={handleJoinOrEnter}
+              disabled={membershipLoading || joinBatch.isPending}
+              data-testid="button-confirm-join"
+            >
+              {membershipLoading ? "확인 중..." : 
+               joinBatch.isPending ? "가입 중..." : 
+               membershipStatus?.isMember ? "입장하기" : 
+               membershipStatus?.claimableMember ? "연결하고 입장" : "가입하고 입장"}
             </Button>
           </DialogFooter>
         </DialogContent>

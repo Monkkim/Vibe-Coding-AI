@@ -308,6 +308,57 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.put(api.batchMembers.update.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.batchMembers.update.input.parse(req.body);
+      const member = await storage.updateBatchMember(Number(req.params.id), input);
+      res.json(member);
+    } catch (error) {
+      console.error("Update batch member error:", error);
+      res.status(500).json({ error: "멤버 정보를 업데이트하지 못했습니다" });
+    }
+  });
+
+  app.get(api.batchMembers.membershipStatus.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const folderId = Number(req.params.folderId);
+      const userId = req.user.id;
+      const userEmail = req.user.email || "";
+      
+      const status = await storage.getUserMembershipInBatch(folderId, userId, userEmail);
+      res.json(status);
+    } catch (error) {
+      console.error("Membership status error:", error);
+      res.status(500).json({ error: "멤버십 상태를 확인하지 못했습니다" });
+    }
+  });
+
+  app.post(api.batchMembers.join.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const folderId = Number(req.params.folderId);
+      const userId = req.user.id;
+      const userEmail = req.user.email || "";
+      const input = api.batchMembers.join.input.parse(req.body);
+      
+      // Check if already a member
+      const existingStatus = await storage.getUserMembershipInBatch(folderId, userId, userEmail);
+      if (existingStatus.isMember) {
+        return res.status(400).json({ message: "이미 이 기수의 멤버입니다" });
+      }
+      
+      const member = await storage.joinBatch(folderId, userId, userEmail, input.displayName, input.claimMemberId);
+      
+      if (!member) {
+        return res.status(400).json({ message: "프로필 연결에 실패했습니다. 이미 다른 사용자가 연결했거나 이메일이 일치하지 않습니다." });
+      }
+      
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Join batch error:", error);
+      res.status(500).json({ error: "기수 가입에 실패했습니다" });
+    }
+  });
+
   // --- Member Journals ---
   app.get(api.memberJournals.list.path, async (req, res) => {
     const journals = await storage.getJournalsByMember(Number(req.params.memberId));

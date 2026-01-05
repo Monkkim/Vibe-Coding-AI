@@ -9,7 +9,7 @@ import {
   type SharedContent, type InsertSharedContent
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { IAuthStorage } from "./replit_integrations/auth/storage";
 
@@ -40,6 +40,9 @@ export interface IStorage extends IAuthStorage {
   getAllBatchMembers(): Promise<BatchMember[]>;
   createBatchMember(member: InsertBatchMember): Promise<BatchMember>;
   deleteBatchMember(id: number): Promise<void>;
+  updateBatchMember(id: number, updates: Partial<InsertBatchMember & { userId?: string; joinedAt?: Date }>): Promise<BatchMember>;
+  getUserMembershipInBatch(folderId: number, userId: string, userEmail: string): Promise<{ isMember: boolean; member: BatchMember | null; claimableMember: BatchMember | null }>;
+  joinBatch(folderId: number, userId: string, userEmail: string, displayName: string, claimMemberId?: number): Promise<BatchMember | null>;
   
   // Journals by member
   getJournalsByMember(memberId: number): Promise<Journal[]>;
@@ -159,6 +162,66 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBatchMember(id: number): Promise<void> {
     await db.delete(batchMembers).where(eq(batchMembers.id, id));
+  }
+
+  async updateBatchMember(id: number, updates: Partial<InsertBatchMember & { userId?: string; joinedAt?: Date }>): Promise<BatchMember> {
+    const [updated] = await db.update(batchMembers).set(updates).where(eq(batchMembers.id, id)).returning();
+    return updated;
+  }
+
+  async getUserMembershipInBatch(folderId: number, userId: string, userEmail: string): Promise<{ isMember: boolean; member: BatchMember | null; claimableMember: BatchMember | null }> {
+    // Check if user is already a member by userId
+    const membersByUserId = await db.select().from(batchMembers)
+      .where(and(eq(batchMembers.folderId, folderId), eq(batchMembers.userId, userId)));
+    
+    if (membersByUserId.length > 0) {
+      return { isMember: true, member: membersByUserId[0], claimableMember: null };
+    }
+
+    // Check if there's an unclaimed member with matching email that user can claim
+    const membersByEmail = await db.select().from(batchMembers)
+      .where(and(
+        eq(batchMembers.folderId, folderId),
+        eq(batchMembers.email, userEmail.toLowerCase()),
+        isNull(batchMembers.userId)
+      ));
+
+    if (membersByEmail.length > 0) {
+      return { isMember: false, member: null, claimableMember: membersByEmail[0] };
+    }
+
+    return { isMember: false, member: null, claimableMember: null };
+  }
+
+  async joinBatch(folderId: number, userId: string, userEmail: string, displayName: string, claimMemberId?: number): Promise<BatchMember | null> {
+    // If claiming an existing member - validate ownership by folderId, email, and userId is null
+    if (claimMemberId) {
+      const [claimed] = await db.update(batchMembers)
+        .set({ userId, joinedAt: new Date() })
+        .where(and(
+          eq(batchMembers.id, claimMemberId),
+          eq(batchMembers.folderId, folderId),
+          eq(batchMembers.email, userEmail.toLowerCase()),
+          isNull(batchMembers.userId)
+        ))
+        .returning();
+      
+      // Return null if no rows were updated (validation failed)
+      if (!claimed) {
+        return null;
+      }
+      return claimed;
+    }
+
+    // Create new member
+    const [member] = await db.insert(batchMembers).values({
+      folderId,
+      name: displayName,
+      email: userEmail.toLowerCase(),
+      userId,
+      joinedAt: new Date(),
+    }).returning();
+    return member;
   }
 
   // --- Journals by Member ---

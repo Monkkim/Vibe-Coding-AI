@@ -82,12 +82,15 @@ export const batchMembers = pgTable("batch_members", {
   folderId: integer("folder_id").notNull(), // Links to folders.id
   name: text("name").notNull(),
   email: text("email"),
+  userId: varchar("user_id"), // Links to users.id when user joins the batch
+  joinedAt: timestamp("joined_at"), // When the user joined (authenticated)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertBatchMemberSchema = createInsertSchema(batchMembers).omit({ 
   id: true, 
-  createdAt: true 
+  createdAt: true,
+  joinedAt: true,
 });
 
 // === SHARED CONTENT (Web Sharing) ===

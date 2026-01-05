@@ -194,6 +194,41 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/batch-members/:id',
+      input: z.object({
+        name: z.string().optional(),
+        email: z.string().optional(),
+      }),
+      responses: {
+        200: z.custom<typeof batchMembers.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    membershipStatus: {
+      method: 'GET' as const,
+      path: '/api/folders/:folderId/membership',
+      responses: {
+        200: z.object({
+          isMember: z.boolean(),
+          member: z.custom<typeof batchMembers.$inferSelect>().nullable(),
+          claimableMember: z.custom<typeof batchMembers.$inferSelect>().nullable(),
+        }),
+      },
+    },
+    join: {
+      method: 'POST' as const,
+      path: '/api/folders/:folderId/join',
+      input: z.object({
+        displayName: z.string(),
+        claimMemberId: z.number().optional(),
+      }),
+      responses: {
+        201: z.custom<typeof batchMembers.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
   },
   memberJournals: {
     list: {
