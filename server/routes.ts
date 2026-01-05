@@ -6,6 +6,7 @@ import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { GoogleGenAI } from "@google/genai";
 
 function generateCrackTimeHtml(name: string, date: string, situation: string, crackPoint: string): string {
@@ -178,7 +179,10 @@ export async function registerRoutes(
   registerChatRoutes(app);
   registerImageRoutes(app);
 
-  // 3. App Routes
+  // 3. Setup Object Storage
+  registerObjectStorageRoutes(app);
+
+  // 4. App Routes
 
   // --- Journals ---
   app.get(api.journals.list.path, isAuthenticated, async (req: any, res) => {
