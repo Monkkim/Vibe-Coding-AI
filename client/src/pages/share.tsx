@@ -113,9 +113,15 @@ export function ShareView() {
 
               <div className="bg-white/80 dark:bg-black/30 rounded-2xl p-6 shadow-sm">
                 <h3 className="text-xl font-bold text-foreground mb-4">{journalData.title}</h3>
-                <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed text-lg">
-                  {journalData.content}
-                </p>
+                <div 
+                  className="text-foreground/80 leading-relaxed text-lg journal-content"
+                  dangerouslySetInnerHTML={{ __html: journalData.content }}
+                />
+                <style>{`
+                  .journal-content p { margin: 0 0 0.5em 0; min-height: 1.5em; }
+                  .journal-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; }
+                  .journal-content br { line-height: 1.7; }
+                `}</style>
               </div>
 
               <div className="text-center pt-4">
