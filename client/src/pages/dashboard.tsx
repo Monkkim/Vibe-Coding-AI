@@ -4,6 +4,7 @@ import { useCreateJournal, useUpdateJournal } from "@/hooks/use-journals";
 import { useBatch } from "@/contexts/BatchContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TokenGame } from "@/components/TokenGame";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { useCrackTime } from "@/hooks/use-ai-chat";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -1052,12 +1053,11 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
                   className="rounded-xl bg-white/50 dark:bg-black/20"
                   data-testid="input-journal-title"
                 />
-                <Textarea 
-                  placeholder="오늘의 생각, 배움, 감사를 적어보세요..."
+                <RichTextEditor
                   value={journalContent}
-                  onChange={(e) => setJournalContent(e.target.value)}
-                  className="rounded-xl bg-white/50 dark:bg-black/20 min-h-[150px]"
-                  data-testid="input-journal-content"
+                  onChange={setJournalContent}
+                  placeholder="오늘의 생각, 배움, 감사를 적어보세요..."
+                  minHeight="150px"
                 />
                 <div className="flex gap-2 justify-end flex-wrap">
                   <Button variant="outline" onClick={() => setShowJournalForm(false)}>취소</Button>
@@ -1102,12 +1102,11 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
                         className="rounded-xl bg-white/50 dark:bg-black/20"
                         data-testid={`input-edit-title-${journal.id}`}
                       />
-                      <Textarea 
-                        placeholder="내용을 입력하세요..."
+                      <RichTextEditor
                         value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="rounded-xl bg-white/50 dark:bg-black/20 min-h-[150px]"
-                        data-testid={`input-edit-content-${journal.id}`}
+                        onChange={setEditContent}
+                        placeholder="내용을 입력하세요..."
+                        minHeight="150px"
                       />
                       <div className="flex gap-2 justify-end flex-wrap">
                         <Button variant="outline" onClick={cancelEditJournal}>취소</Button>
