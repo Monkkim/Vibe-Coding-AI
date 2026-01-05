@@ -274,24 +274,16 @@ export function RichTextEditor({
     
     editorRef.current?.focus();
     
-    if (savedSelection.current) {
-      const sel = window.getSelection();
-      if (sel) {
-        sel.removeAllRanges();
-        sel.addRange(savedSelection.current);
-      }
-    }
-    
     deleteSlashCommand();
     
-    setTimeout(() => {
-      if (cmd.isList) {
-        document.execCommand(cmd.ordered ? "insertOrderedList" : "insertUnorderedList", false);
-      } else {
-        document.execCommand("formatBlock", false, cmd.tag);
-      }
-      syncContent();
-    }, 0);
+    if (cmd.isList) {
+      document.execCommand(cmd.ordered ? "insertOrderedList" : "insertUnorderedList", false);
+    } else {
+      const tag = `<${cmd.tag}>`;
+      document.execCommand("formatBlock", false, tag);
+    }
+    
+    syncContent();
   }, [deleteSlashCommand, syncContent]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
