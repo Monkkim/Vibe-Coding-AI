@@ -316,16 +316,26 @@ export async function registerRoutes(
 
   // --- Settings ---
   app.get(api.settings.get.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.id;
-    const apiKey = await storage.getUserGeminiApiKey(userId);
-    res.json({ hasGeminiApiKey: !!apiKey });
+    try {
+      const userId = req.user.id;
+      const apiKey = await storage.getUserGeminiApiKey(userId);
+      res.json({ hasGeminiApiKey: !!apiKey });
+    } catch (error) {
+      console.error("Settings GET error:", error);
+      res.status(500).json({ error: "설정을 불러오지 못했습니다" });
+    }
   });
 
   app.put(api.settings.update.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.id;
-    const { geminiApiKey } = req.body;
-    await storage.updateUserSettings(userId, { geminiApiKey });
-    res.json({ success: true });
+    try {
+      const userId = req.user.id;
+      const input = api.settings.update.input.parse(req.body);
+      await storage.updateUserSettings(userId, { geminiApiKey: input.geminiApiKey || "" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Settings PUT error:", error);
+      res.status(500).json({ error: "설정 저장에 실패했습니다" });
+    }
   });
 
   // --- Crack Time with User's API Key ---
