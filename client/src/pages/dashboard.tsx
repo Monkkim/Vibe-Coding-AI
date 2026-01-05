@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useFolders, useCreateFolder, useDeleteFolder, useBatchMembers, useCreateBatchMember, useDeleteBatchMember, useMemberJournals } from "@/hooks/use-folders";
+import { useFolders, useCreateFolder, useDeleteFolder, useBatchMembers, useCreateBatchMember, useDeleteBatchMember, useMemberJournals, useUpdateBatchMember } from "@/hooks/use-folders";
 import { useCreateJournal, useUpdateJournal } from "@/hooks/use-journals";
 import { useBatch } from "@/contexts/BatchContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -576,13 +576,18 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
   const [journalCopied, setJournalCopied] = useState(false);
   const [showFolderDialog, setShowFolderDialog] = useState(false);
   const [showMemberDialog, setShowMemberDialog] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   
   const { data: members, isLoading: membersLoading } = useBatchMembers(selectedFolderId);
   const createMember = useCreateBatchMember();
   const deleteMember = useDeleteBatchMember();
+  const updateMember = useUpdateBatchMember();
   const { data: memberJournals, isLoading: journalsLoading } = useMemberJournals(selectedMemberId);
   
   const selectedFolder = folders?.find(f => f.id === selectedFolderId);
+  
+  // Find current user's member record in this batch
+  const myMemberRecord = members?.find(m => m.userId === user?.id);
 
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) {
@@ -609,6 +614,25 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
         setNewMemberName("");
       },
       onError: () => toast({ title: "추가 실패", variant: "destructive" })
+    });
+  };
+
+  const handleUpdateMyName = () => {
+    if (!newMemberName.trim() || !myMemberRecord || !selectedFolderId) {
+      toast({ title: "이름을 입력하세요", variant: "destructive" });
+      return;
+    }
+    updateMember.mutate({ 
+      id: myMemberRecord.id, 
+      folderId: selectedFolderId,
+      data: { name: newMemberName }
+    }, {
+      onSuccess: () => {
+        toast({ title: "이름이 변경되었습니다" });
+        setNewMemberName("");
+        setShowMemberDialog(false);
+      },
+      onError: () => toast({ title: "변경 실패", variant: "destructive" })
     });
   };
 
@@ -798,18 +822,66 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
           </DialogContent>
         </Dialog>
 
+        {selectedFolderId && !selectedMemberId && myMemberRecord && (
+          <Button 
+            onClick={() => {
+              setNewMemberName(myMemberRecord.name);
+              setShowMemberDialog(true);
+            }}
+            variant="outline"
+            className="rounded-xl"
+            data-testid="button-open-member-dialog"
+          >
+            <Pencil className="w-4 h-4 mr-1" />
+            이름 변경하기
+          </Button>
+        )}
+
+        <Dialog open={showMemberDialog} onOpenChange={setShowMemberDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>내 이름 변경</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Input 
+                placeholder="변경할 이름을 입력하세요" 
+                value={newMemberName}
+                onChange={(e) => setNewMemberName(e.target.value)}
+                className="rounded-xl"
+                data-testid="input-rename-member"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setShowMemberDialog(false)}>
+                취소
+              </Button>
+              <Button 
+                onClick={handleUpdateMyName}
+                disabled={updateMember.isPending || !newMemberName.trim()}
+                className="bg-green-500"
+                data-testid="button-update-name"
+              >
+                {updateMember.isPending ? "변경 중..." : "변경하기"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {selectedFolderId && !selectedMemberId && (
           <Button 
-            onClick={() => setShowMemberDialog(true)}
+            onClick={() => {
+              setNewMemberName("");
+              setShowAddMemberDialog(true);
+            }}
             className="rounded-xl bg-green-500"
-            data-testid="button-open-member-dialog"
+            data-testid="button-open-add-member-dialog"
           >
             <UserPlus className="w-4 h-4 mr-1" />
             멤버 추가
           </Button>
         )}
 
-        <Dialog open={showMemberDialog} onOpenChange={setShowMemberDialog}>
+        <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>새 멤버 추가</DialogTitle>
@@ -824,19 +896,19 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
               />
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setShowMemberDialog(false)}>
+              <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>
                 취소
               </Button>
               <Button 
                 onClick={() => {
                   handleCreateMember();
-                  setShowMemberDialog(false);
+                  setShowAddMemberDialog(false);
                 }}
                 disabled={createMember.isPending || !newMemberName.trim()}
                 className="bg-green-500"
                 data-testid="button-add-member"
               >
-                추가하기
+                {createMember.isPending ? "추가 중..." : "추가하기"}
               </Button>
             </DialogFooter>
           </DialogContent>

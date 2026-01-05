@@ -58,6 +58,24 @@ export function BatchSelect() {
   const batches = folders?.filter((f: Folder) => f.type === "batch") || [];
 
   const handleSelectBatch = async (batch: Folder) => {
+    // Check membership first via API call, then navigate directly if already a member
+    try {
+      const res = await fetch(`/api/folders/${batch.id}/membership`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const status = await res.json();
+        if (status.isMember) {
+          // Already a member - go directly to dashboard without showing dialog
+          setSelectedBatch(batch);
+          navigate("/dashboard");
+          return;
+        }
+      }
+    } catch (error) {
+      // Fall through to show dialog
+    }
+    
     setSelectedBatchForJoin(batch);
     setShowJoinDialog(true);
   };
