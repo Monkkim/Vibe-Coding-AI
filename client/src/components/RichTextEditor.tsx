@@ -68,38 +68,17 @@ export function RichTextEditor({
     },
   });
 
-  const formatBlock = useCallback((tag: string) => {
-    document.execCommand("formatBlock", false, tag);
-    updateContent();
-    setShowSlashMenu(false);
-    setSlashFilter("");
-  }, []);
-
-  const insertList = useCallback((ordered: boolean) => {
-    document.execCommand(ordered ? "insertOrderedList" : "insertUnorderedList");
-    updateContent();
-    setShowSlashMenu(false);
-    setSlashFilter("");
-  }, []);
-
-  const insertQuote = useCallback(() => {
-    document.execCommand("formatBlock", false, "blockquote");
-    updateContent();
-    setShowSlashMenu(false);
-    setSlashFilter("");
-  }, []);
-
   const slashCommands: SlashCommand[] = [
-    { id: "text", label: "텍스트", shortcut: "", icon: Type, action: () => formatBlock("p") },
-    { id: "h1", label: "제목1", shortcut: "#", icon: Heading1, action: () => formatBlock("h1") },
-    { id: "h2", label: "제목2", shortcut: "##", icon: Heading2, action: () => formatBlock("h2") },
-    { id: "h3", label: "제목3", shortcut: "###", icon: Heading3, action: () => formatBlock("h3") },
-    { id: "bullet", label: "글머리 기호 목록", shortcut: "-", icon: List, action: () => insertList(false) },
-    { id: "numbered", label: "번호 매기기 목록", shortcut: "1.", icon: ListOrdered, action: () => insertList(true) },
-    { id: "quote", label: "인용", shortcut: ">", icon: Quote, action: insertQuote },
+    { id: "text", label: "텍스트", shortcut: "", icon: Type, action: () => removeSlashTextAndFormat("p") },
+    { id: "h1", label: "제목1", shortcut: "#", icon: Heading1, action: () => removeSlashTextAndFormat("h1") },
+    { id: "h2", label: "제목2", shortcut: "##", icon: Heading2, action: () => removeSlashTextAndFormat("h2") },
+    { id: "h3", label: "제목3", shortcut: "###", icon: Heading3, action: () => removeSlashTextAndFormat("h3") },
+    { id: "bullet", label: "글머리 기호 목록", shortcut: "-", icon: List, action: () => removeSlashTextAndInsertList(false) },
+    { id: "numbered", label: "번호 매기기 목록", shortcut: "1.", icon: ListOrdered, action: () => removeSlashTextAndInsertList(true) },
+    { id: "quote", label: "인용", shortcut: ">", icon: Quote, action: () => removeSlashTextAndFormat("blockquote") },
   ];
 
-  const filteredCommands = slashCommands.filter(cmd => 
+  const filteredCommands = slashCommands.filter((cmd: SlashCommand) => 
     cmd.label.toLowerCase().includes(slashFilter.toLowerCase()) ||
     cmd.id.toLowerCase().includes(slashFilter.toLowerCase())
   );
@@ -143,7 +122,7 @@ export function RichTextEditor({
     };
   }, []);
 
-  const removeSlashText = useCallback(() => {
+  const removeSlashTextAndFormat = useCallback((tag: string) => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     
@@ -156,24 +135,67 @@ export function RichTextEditor({
       const slashIndex = text.lastIndexOf("/", cursorPos - 1);
       
       if (slashIndex !== -1) {
-        const beforeSlash = text.substring(0, slashIndex);
-        const afterCursor = text.substring(cursorPos);
-        textNode.textContent = beforeSlash + afterCursor;
-        
-        const newRange = document.createRange();
-        newRange.setStart(textNode, slashIndex);
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
+        const deleteRange = document.createRange();
+        deleteRange.setStart(textNode, slashIndex);
+        deleteRange.setEnd(textNode, cursorPos);
+        deleteRange.deleteContents();
       }
     }
-  }, []);
+    
+    document.execCommand("formatBlock", false, tag);
+    
+    requestAnimationFrame(() => {
+      const sel = window.getSelection();
+      if (sel && editorRef.current) {
+        const focusNode = sel.focusNode;
+        if (focusNode) {
+          const newRange = document.createRange();
+          if (focusNode.nodeType === Node.TEXT_NODE) {
+            newRange.setStart(focusNode, sel.focusOffset);
+          } else if (focusNode.firstChild) {
+            newRange.setStart(focusNode.firstChild, 0);
+          } else {
+            newRange.setStart(focusNode, 0);
+          }
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
+      }
+      updateContent();
+    });
+  }, [updateContent]);
+
+  const removeSlashTextAndInsertList = useCallback((ordered: boolean) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const textNode = range.startContainer;
+    
+    if (textNode.nodeType === Node.TEXT_NODE) {
+      const text = textNode.textContent || "";
+      const cursorPos = range.startOffset;
+      const slashIndex = text.lastIndexOf("/", cursorPos - 1);
+      
+      if (slashIndex !== -1) {
+        const deleteRange = document.createRange();
+        deleteRange.setStart(textNode, slashIndex);
+        deleteRange.setEnd(textNode, cursorPos);
+        deleteRange.deleteContents();
+      }
+    }
+    
+    document.execCommand(ordered ? "insertOrderedList" : "insertUnorderedList");
+    updateContent();
+  }, [updateContent]);
 
   const executeCommand = useCallback((command: SlashCommand) => {
-    removeSlashText();
-    command.action();
+    setShowSlashMenu(false);
+    setSlashFilter("");
     editorRef.current?.focus();
-  }, [removeSlashText]);
+    command.action();
+  }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (showSlashMenu) {
