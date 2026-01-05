@@ -15,7 +15,7 @@ import {
   Heading3,
   List,
   ListOrdered,
-  Quote
+  CheckSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -30,7 +30,6 @@ interface RichTextEditorProps {
 interface SlashCommand {
   id: string;
   label: string;
-  shortcut: string;
   icon: typeof Type;
   tag: string;
   isList?: boolean;
@@ -38,13 +37,13 @@ interface SlashCommand {
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  { id: "text", label: "텍스트", shortcut: "", icon: Type, tag: "p" },
-  { id: "h1", label: "제목1", shortcut: "#", icon: Heading1, tag: "h1" },
-  { id: "h2", label: "제목2", shortcut: "##", icon: Heading2, tag: "h2" },
-  { id: "h3", label: "제목3", shortcut: "###", icon: Heading3, tag: "h3" },
-  { id: "bullet", label: "글머리 기호 목록", shortcut: "-", icon: List, tag: "ul", isList: true, ordered: false },
-  { id: "numbered", label: "번호 매기기 목록", shortcut: "1.", icon: ListOrdered, tag: "ol", isList: true, ordered: true },
-  { id: "quote", label: "인용", shortcut: ">", icon: Quote, tag: "blockquote" },
+  { id: "text", label: "텍스트", icon: Type, tag: "p" },
+  { id: "h1", label: "제목 1", icon: Heading1, tag: "h1" },
+  { id: "h2", label: "제목 2", icon: Heading2, tag: "h2" },
+  { id: "h3", label: "제목 3", icon: Heading3, tag: "h3" },
+  { id: "bullet", label: "글머리 기호 목록", icon: List, tag: "ul", isList: true, ordered: false },
+  { id: "numbered", label: "번호 매기기 목록", icon: ListOrdered, tag: "ol", isList: true, ordered: true },
+  { id: "todo", label: "할 일 목록", icon: CheckSquare, tag: "ul", isList: true, ordered: false },
 ];
 
 export function RichTextEditor({
@@ -63,7 +62,7 @@ export function RichTextEditor({
   const [slashFilter, setSlashFilter] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [resizingImage, setResizingImage] = useState<HTMLImageElement | null>(null);
-  const consecutiveEnters = useRef(0);
+  const lastEmptyListEnter = useRef(false);
   const { toast } = useToast();
   
   const { uploadFile, isUploading } = useUpload({
@@ -127,6 +126,45 @@ export function RichTextEditor({
     };
   }, []);
 
+  const getCurrentBlock = useCallback((): HTMLElement | null => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    let node: Node | null = sel.anchorNode;
+    while (node && node !== editorRef.current) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        const tag = el.tagName.toLowerCase();
+        if (["p", "h1", "h2", "h3", "li", "blockquote"].includes(tag)) {
+          return el;
+        }
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }, []);
+
+  const isInList = useCallback((): boolean => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return false;
+    let node: Node | null = sel.anchorNode;
+    while (node && node !== editorRef.current) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const tag = (node as HTMLElement).tagName.toLowerCase();
+        if (tag === "ul" || tag === "ol") return true;
+      }
+      node = node.parentNode;
+    }
+    return false;
+  }, []);
+
+  const isInHeading = useCallback((): string | null => {
+    const block = getCurrentBlock();
+    if (!block) return null;
+    const tag = block.tagName.toLowerCase();
+    if (["h1", "h2", "h3"].includes(tag)) return tag;
+    return null;
+  }, [getCurrentBlock]);
+
   const deleteSlashCommand = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
@@ -144,6 +182,79 @@ export function RichTextEditor({
     delRange.setEnd(node, pos);
     delRange.deleteContents();
   }, []);
+
+  const insertParagraphAfter = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
+    
+    const currentBlock = getCurrentBlock();
+    if (!currentBlock) return;
+
+    const p = document.createElement("p");
+    p.innerHTML = "<br>";
+    
+    if (currentBlock.parentNode) {
+      currentBlock.parentNode.insertBefore(p, currentBlock.nextSibling);
+    }
+    
+    const range = document.createRange();
+    range.setStart(p, 0);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    
+    syncContent();
+  }, [getCurrentBlock, syncContent]);
+
+  const exitListAndInsertParagraph = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
+    
+    let node: Node | null = sel.anchorNode;
+    let listItem: HTMLElement | null = null;
+    let list: HTMLElement | null = null;
+    
+    while (node && node !== editorRef.current) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const tag = (node as HTMLElement).tagName.toLowerCase();
+        if (tag === "li") listItem = node as HTMLElement;
+        if (tag === "ul" || tag === "ol") {
+          list = node as HTMLElement;
+          break;
+        }
+      }
+      node = node.parentNode;
+    }
+    
+    if (list && listItem) {
+      listItem.remove();
+      
+      if (list.children.length === 0) {
+        const p = document.createElement("p");
+        p.innerHTML = "<br>";
+        list.parentNode?.insertBefore(p, list.nextSibling);
+        list.remove();
+        
+        const range = document.createRange();
+        range.setStart(p, 0);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else {
+        const p = document.createElement("p");
+        p.innerHTML = "<br>";
+        list.parentNode?.insertBefore(p, list.nextSibling);
+        
+        const range = document.createRange();
+        range.setStart(p, 0);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+    
+    syncContent();
+  }, [syncContent]);
 
   const applyBlockFormat = useCallback((cmd: SlashCommand) => {
     setShowSlashMenu(false);
@@ -203,19 +314,37 @@ export function RichTextEditor({
       }
     }
 
-    if (e.key === "Enter" && !e.shiftKey) {
-      consecutiveEnters.current++;
+    if (e.key === "Enter") {
+      const headingType = isInHeading();
+      const inList = isInList();
       
-      if (consecutiveEnters.current >= 2) {
+      if (headingType && !e.shiftKey) {
         e.preventDefault();
-        consecutiveEnters.current = 0;
-        document.execCommand("formatBlock", false, "p");
-        syncContent();
+        insertParagraphAfter();
+        return;
+      }
+      
+      if (inList && !e.shiftKey) {
+        const currentBlock = getCurrentBlock();
+        const blockText = currentBlock?.textContent?.trim() || "";
+        
+        if (blockText === "") {
+          if (lastEmptyListEnter.current) {
+            e.preventDefault();
+            lastEmptyListEnter.current = false;
+            exitListAndInsertParagraph();
+            return;
+          } else {
+            lastEmptyListEnter.current = true;
+          }
+        } else {
+          lastEmptyListEnter.current = false;
+        }
       }
     } else {
-      consecutiveEnters.current = 0;
+      lastEmptyListEnter.current = false;
     }
-  }, [showSlashMenu, filteredCommands, selectedIndex, applyBlockFormat, slashFilter, syncContent]);
+  }, [showSlashMenu, filteredCommands, selectedIndex, applyBlockFormat, slashFilter, isInHeading, isInList, getCurrentBlock, insertParagraphAfter, exitListAndInsertParagraph]);
 
   const handleInput = useCallback(() => {
     syncContent();
@@ -381,24 +510,25 @@ export function RichTextEditor({
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="absolute z-50 bg-popover border rounded-lg shadow-lg py-1 min-w-[200px] max-h-[280px] overflow-auto"
+              className="absolute z-50 bg-popover border rounded-lg shadow-lg py-1 min-w-[220px] max-h-[300px] overflow-auto"
               style={{ top: slashMenuPosition.top, left: slashMenuPosition.left }}
             >
-              <div className="px-3 py-1.5 text-xs text-muted-foreground font-medium border-b">블록 유형</div>
+              <div className="px-3 py-2 text-xs text-muted-foreground font-medium border-b">블록 유형 선택</div>
               {filteredCommands.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-muted-foreground">결과 없음</div>
+                <div className="px-3 py-3 text-sm text-muted-foreground">결과 없음</div>
               ) : (
                 filteredCommands.map((cmd, idx) => (
                   <button
                     key={cmd.id}
-                    className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
                       idx === selectedIndex ? "bg-accent" : "hover:bg-muted/50"
                     }`}
                     onClick={() => applyBlockFormat(cmd)}
                   >
-                    <cmd.icon className="w-4 h-4 text-muted-foreground" />
-                    <span className="flex-1">{cmd.label}</span>
-                    {cmd.shortcut && <span className="text-xs text-muted-foreground">{cmd.shortcut}</span>}
+                    <div className="w-8 h-8 flex items-center justify-center rounded bg-muted/50">
+                      <cmd.icon className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <span className="flex-1 font-medium">{cmd.label}</span>
                   </button>
                 ))
               )}
@@ -410,9 +540,9 @@ export function RichTextEditor({
       <style>{`
         [data-testid="editor-content"] { line-height: 1.7; }
         [data-testid="editor-content"] p { margin: 0 0 0.5em 0; min-height: 1.5em; }
-        [data-testid="editor-content"] h1 { font-size: 2em; font-weight: 700; margin: 0.75em 0 0.25em; }
-        [data-testid="editor-content"] h2 { font-size: 1.5em; font-weight: 600; margin: 0.6em 0 0.2em; }
-        [data-testid="editor-content"] h3 { font-size: 1.25em; font-weight: 600; margin: 0.5em 0 0.15em; }
+        [data-testid="editor-content"] h1 { font-size: 2em; font-weight: 700; margin: 0.75em 0 0.25em; min-height: 1.2em; }
+        [data-testid="editor-content"] h2 { font-size: 1.5em; font-weight: 600; margin: 0.6em 0 0.2em; min-height: 1.2em; }
+        [data-testid="editor-content"] h3 { font-size: 1.25em; font-weight: 600; margin: 0.5em 0 0.15em; min-height: 1.2em; }
         [data-testid="editor-content"] blockquote {
           border-left: 3px solid hsl(var(--muted-foreground));
           padding-left: 1em;
@@ -424,7 +554,7 @@ export function RichTextEditor({
           margin: 0.5em 0;
           padding-left: 1.5em;
         }
-        [data-testid="editor-content"] li { margin: 0.25em 0; }
+        [data-testid="editor-content"] li { margin: 0.25em 0; min-height: 1.5em; }
         [data-testid="editor-content"] img {
           max-width: 100%;
           height: auto;
