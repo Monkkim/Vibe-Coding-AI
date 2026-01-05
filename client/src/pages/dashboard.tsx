@@ -1041,127 +1041,147 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
+            className="flex gap-4 h-[calc(100vh-200px)]"
           >
-            {showJournalForm && (
-              <Card className="glass-card rounded-2xl p-6 space-y-4">
-                <h3 className="font-bold text-lg">새 저널 작성</h3>
-                <Input 
-                  placeholder="제목" 
-                  value={journalTitle}
-                  onChange={(e) => setJournalTitle(e.target.value)}
-                  className="rounded-xl bg-white/50 dark:bg-black/20"
-                  data-testid="input-journal-title"
-                />
-                <RichTextEditor
-                  value={journalContent}
-                  onChange={setJournalContent}
-                  placeholder="오늘의 생각, 배움, 감사를 적어보세요..."
-                  minHeight="150px"
-                />
-                <div className="flex gap-2 justify-end flex-wrap">
-                  <Button variant="outline" onClick={() => setShowJournalForm(false)}>취소</Button>
-                  <Button 
-                    onClick={handleCreateJournal} 
-                    disabled={createJournal.isPending}
-                    className="bg-amber-500"
-                    data-testid="button-submit-journal"
-                  >
-                    저장하기
-                  </Button>
-                </div>
-              </Card>
-            )}
-
-            <div className="space-y-4">
-              <h3 className="font-semibold text-muted-foreground text-sm">저널 목록</h3>
-              {journalsLoading && <p className="text-center text-muted-foreground animate-pulse">로딩 중...</p>}
-              {memberJournals?.map(journal => (
-                <Card 
-                  key={journal.id} 
-                  className="glass-card rounded-2xl p-5"
-                  data-testid={`card-journal-${journal.id}`}
-                >
-                  {editingJournalId === journal.id ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-bold text-lg">저널 수정</h3>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={cancelEditJournal}
-                          data-testid={`button-cancel-edit-${journal.id}`}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <Input 
-                        placeholder="제목" 
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className="rounded-xl bg-white/50 dark:bg-black/20"
-                        data-testid={`input-edit-title-${journal.id}`}
-                      />
-                      <RichTextEditor
-                        value={editContent}
-                        onChange={setEditContent}
-                        placeholder="내용을 입력하세요..."
-                        minHeight="150px"
-                      />
-                      <div className="flex gap-2 justify-end flex-wrap">
-                        <Button variant="outline" onClick={cancelEditJournal}>취소</Button>
-                        <Button 
-                          onClick={handleUpdateJournal} 
-                          disabled={updateJournal.isPending}
-                          className="bg-amber-500"
-                          data-testid={`button-save-edit-${journal.id}`}
-                        >
-                          저장하기
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                        <span className="text-xs px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium">
-                          #{journal.category}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleShareJournal(journal)}
-                            disabled={isJournalSharing}
-                            data-testid={`button-share-journal-${journal.id}`}
-                          >
-                            <Share2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => startEditJournal(journal)}
-                            data-testid={`button-edit-journal-${journal.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(journal.createdAt).toLocaleString('ko-KR')}
-                          </span>
-                        </div>
-                      </div>
-                      <h4 className="font-bold text-lg mb-2">{journal.title}</h4>
-                      <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{journal.content}</p>
-                    </>
-                  )}
+            <div className="flex-1 flex flex-col">
+              {showJournalForm ? (
+                <Card className="glass-card rounded-2xl flex-1 flex flex-col overflow-hidden">
+                  <div className="p-4 border-b flex items-center justify-between gap-2">
+                    <Input 
+                      placeholder="제목을 입력하세요..." 
+                      value={journalTitle}
+                      onChange={(e) => setJournalTitle(e.target.value)}
+                      className="text-xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0"
+                      data-testid="input-journal-title"
+                    />
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <RichTextEditor
+                      value={journalContent}
+                      onChange={setJournalContent}
+                      placeholder="'/'를 입력하여 블록 유형을 선택하세요..."
+                      minHeight="100%"
+                      className="h-full border-0 rounded-none"
+                    />
+                  </div>
+                  <div className="p-4 border-t flex gap-2 justify-end">
+                    <Button variant="outline" onClick={() => setShowJournalForm(false)}>취소</Button>
+                    <Button 
+                      onClick={handleCreateJournal} 
+                      disabled={createJournal.isPending}
+                      className="bg-amber-500"
+                      data-testid="button-submit-journal"
+                    >
+                      저장하기
+                    </Button>
+                  </div>
                 </Card>
-              ))}
-              {memberJournals?.length === 0 && !journalsLoading && (
-                <div className="text-center py-16 text-muted-foreground">
-                  <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                  <p className="text-lg">아직 저널이 없습니다.</p>
-                  <p className="text-sm">위의 '저널 작성' 버튼을 눌러 시작하세요.</p>
+              ) : editingJournalId ? (
+                <Card className="glass-card rounded-2xl flex-1 flex flex-col overflow-hidden">
+                  <div className="p-4 border-b flex items-center justify-between gap-2">
+                    <Input 
+                      placeholder="제목을 입력하세요..." 
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="text-xl font-bold border-0 bg-transparent focus-visible:ring-0 px-0"
+                      data-testid="input-edit-title"
+                    />
+                    <Button variant="ghost" size="icon" onClick={cancelEditJournal}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <RichTextEditor
+                      value={editContent}
+                      onChange={setEditContent}
+                      placeholder="내용을 입력하세요..."
+                      minHeight="100%"
+                      className="h-full border-0 rounded-none"
+                    />
+                  </div>
+                  <div className="p-4 border-t flex gap-2 justify-end">
+                    <Button variant="outline" onClick={cancelEditJournal}>취소</Button>
+                    <Button 
+                      onClick={handleUpdateJournal} 
+                      disabled={updateJournal.isPending}
+                      className="bg-amber-500"
+                      data-testid="button-save-edit"
+                    >
+                      저장하기
+                    </Button>
+                  </div>
+                </Card>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center text-muted-foreground">
+                    <BookOpen className="w-20 h-20 mx-auto mb-4 opacity-20" />
+                    <p className="text-lg mb-2">저널을 선택하거나 새로 작성하세요</p>
+                    <Button 
+                      onClick={() => setShowJournalForm(true)}
+                      className="bg-amber-500 mt-4"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      새 저널 작성
+                    </Button>
+                  </div>
                 </div>
               )}
+            </div>
+
+            <div className="w-80 flex-shrink-0">
+              <Card className="glass-card rounded-2xl h-full flex flex-col overflow-hidden">
+                <div className="p-4 border-b flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-sm">저널 목록</h3>
+                  <span className="text-xs text-muted-foreground">{memberJournals?.length || 0}개</span>
+                </div>
+                <ScrollArea className="flex-1">
+                  <div className="p-2 space-y-1">
+                    {journalsLoading && (
+                      <p className="text-center text-muted-foreground animate-pulse py-4">로딩 중...</p>
+                    )}
+                    {memberJournals?.map(journal => (
+                      <div
+                        key={journal.id}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors hover-elevate ${
+                          editingJournalId === journal.id ? "bg-amber-100 dark:bg-amber-900/30" : ""
+                        }`}
+                        onClick={() => startEditJournal(journal)}
+                        data-testid={`journal-item-${journal.id}`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                            #{journal.category}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareJournal(journal);
+                              }}
+                              disabled={isJournalSharing}
+                            >
+                              <Share2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <h4 className="font-medium text-sm truncate">{journal.title}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(journal.createdAt).toLocaleDateString('ko-KR')}
+                        </p>
+                      </div>
+                    ))}
+                    {memberJournals?.length === 0 && !journalsLoading && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">아직 저널이 없습니다</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </Card>
             </div>
           </motion.div>
         )}
