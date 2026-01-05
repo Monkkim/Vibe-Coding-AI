@@ -12,6 +12,7 @@ import { ForgotPassword } from "@/pages/forgot-password";
 import { BatchSelect } from "@/pages/batch-select";
 import { Dashboard } from "@/pages/dashboard";
 import { Settings } from "@/pages/settings";
+import { ShareView } from "@/pages/share";
 
 function Router() {
   return (
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/batches" component={BatchSelect} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/settings" component={Settings} />
+      <Route path="/share/:id" component={ShareView} />
       <Route component={NotFound} />
     </Switch>
   );

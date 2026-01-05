@@ -89,6 +89,20 @@ export const insertBatchMemberSchema = createInsertSchema(batchMembers).omit({
   createdAt: true 
 });
 
+// === SHARED CONTENT (Web Sharing) ===
+export const sharedContent = pgTable("shared_content", {
+  id: text("id").primaryKey(), // UUID-style unique share ID
+  type: text("type").notNull(), // 'cracktime' or 'journal'
+  title: text("title").notNull(),
+  content: text("content").notNull(), // HTML or text content
+  authorName: text("author_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSharedContentSchema = createInsertSchema(sharedContent).omit({ 
+  createdAt: true 
+});
+
 // === RELATIONS ===
 export const journalsRelations = relations(journals, ({ one }) => ({
   author: one(users, {
@@ -125,3 +139,6 @@ export type InsertFolder = z.infer<typeof insertFolderSchema>;
 
 export type BatchMember = typeof batchMembers.$inferSelect;
 export type InsertBatchMember = z.infer<typeof insertBatchMemberSchema>;
+
+export type SharedContent = typeof sharedContent.$inferSelect;
+export type InsertSharedContent = z.infer<typeof insertSharedContentSchema>;

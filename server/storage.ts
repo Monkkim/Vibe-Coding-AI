@@ -1,11 +1,12 @@
 import { 
-  users, journals, tokens, leads, folders, batchMembers,
+  users, journals, tokens, leads, folders, batchMembers, sharedContent,
   type User,
   type Journal, type InsertJournal,
   type Token, type InsertToken,
   type Lead, type InsertLead,
   type Folder, type InsertFolder,
-  type BatchMember, type InsertBatchMember
+  type BatchMember, type InsertBatchMember,
+  type SharedContent, type InsertSharedContent
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -49,6 +50,10 @@ export interface IStorage extends IAuthStorage {
   // Settings
   updateUserSettings(userId: string, settings: { geminiApiKey?: string }): Promise<User>;
   getUserGeminiApiKey(userId: string): Promise<string | null>;
+
+  // Shared Content (Web Sharing)
+  createSharedContent(content: InsertSharedContent): Promise<SharedContent>;
+  getSharedContent(id: string): Promise<SharedContent | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -183,6 +188,17 @@ export class DatabaseStorage implements IStorage {
   async getUserGeminiApiKey(userId: string): Promise<string | null> {
     const [user] = await db.select({ geminiApiKey: users.geminiApiKey }).from(users).where(eq(users.id, userId));
     return user?.geminiApiKey || null;
+  }
+
+  // --- Shared Content (Web Sharing) ---
+  async createSharedContent(content: InsertSharedContent): Promise<SharedContent> {
+    const [shared] = await db.insert(sharedContent).values(content).returning();
+    return shared;
+  }
+
+  async getSharedContent(id: string): Promise<SharedContent | null> {
+    const [shared] = await db.select().from(sharedContent).where(eq(sharedContent.id, id));
+    return shared || null;
   }
 }
 

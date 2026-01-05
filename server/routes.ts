@@ -402,6 +402,52 @@ export async function registerRoutes(
     }
   });
 
+  // === SHARED CONTENT (Web Sharing) ===
+  
+  // Create shared content (authenticated)
+  app.post("/api/share", isAuthenticated, async (req, res) => {
+    try {
+      const { type, title, content, authorName } = req.body;
+      
+      if (!type || !title || !content || !authorName) {
+        return res.status(400).json({ error: "모든 필드를 입력해주세요." });
+      }
+      
+      // Generate unique ID
+      const id = `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const shared = await storage.createSharedContent({
+        id,
+        type,
+        title,
+        content,
+        authorName,
+      });
+      
+      res.json({ id: shared.id, url: `/share/${shared.id}` });
+    } catch (error) {
+      console.error("Share creation error:", error);
+      res.status(500).json({ error: "공유 링크 생성에 실패했습니다." });
+    }
+  });
+  
+  // Get shared content (public - no authentication required)
+  app.get("/api/share/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const shared = await storage.getSharedContent(id);
+      
+      if (!shared) {
+        return res.status(404).json({ error: "공유된 콘텐츠를 찾을 수 없습니다." });
+      }
+      
+      res.json(shared);
+    } catch (error) {
+      console.error("Share fetch error:", error);
+      res.status(500).json({ error: "콘텐츠를 불러오는데 실패했습니다." });
+    }
+  });
+
   // --- Seed Data (Check if empty and seed) ---
   await seedDatabase();
 

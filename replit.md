@@ -78,6 +78,12 @@ Preferred communication style: Simple, everyday language.
 - Uses Resend email service to send temporary passwords via email
 - Requires `RESEND_API_KEY` environment variable
 
+### Web Sharing
+- Crack Time results and Morning Journal entries can be shared via URL
+- Share button generates unique public link (/share/:id)
+- Public share pages display content without authentication
+- Shared content stored in `shared_content` table
+
 ### Database
 - **PostgreSQL**: Primary data store
   - Connection via `DATABASE_URL` environment variable

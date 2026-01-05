@@ -31,7 +31,11 @@ import {
   FileText,
   RefreshCw,
   Pencil,
-  X
+  X,
+  Share2,
+  Copy,
+  Check,
+  ExternalLink
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useState, useRef, useEffect } from "react";
@@ -219,6 +223,11 @@ function CrackTimeSection() {
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
 
   const today = new Date();
   const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
@@ -249,6 +258,51 @@ function CrackTimeSection() {
   const printToPdf = () => {
     if (!iframeRef.current) return;
     iframeRef.current.contentWindow?.print();
+  };
+
+  const handleShare = async () => {
+    if (!result?.html) return;
+    
+    setIsSharing(true);
+    try {
+      const response = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          type: "cracktime",
+          title: `CRACK TIME - ${result.userName} (${result.date})`,
+          content: result.html,
+          authorName: result.userName,
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to create share link");
+      
+      const data = await response.json();
+      const fullUrl = `${window.location.origin}${data.url}`;
+      setShareUrl(fullUrl);
+      setShowShareDialog(true);
+    } catch (error) {
+      toast({
+        title: "공유 링크 생성 실패",
+        description: "다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: "링크가 복사되었습니다" });
+    } catch (error) {
+      toast({ title: "복사 실패", variant: "destructive" });
+    }
   };
 
   if (isLoading) {
@@ -345,6 +399,15 @@ function CrackTimeSection() {
           <h2 className="text-lg font-semibold text-foreground">크랙 타임 결과</h2>
           <div className="flex items-center gap-2 flex-wrap">
             <Button 
+              onClick={handleShare}
+              variant="outline"
+              size="sm"
+              disabled={isSharing}
+              data-testid="button-share-crack"
+            >
+              <Share2 className="w-4 h-4 mr-2" /> {isSharing ? "생성 중..." : "공유하기"}
+            </Button>
+            <Button 
               onClick={downloadAsHtml}
               variant="outline"
               size="sm"
@@ -379,6 +442,52 @@ function CrackTimeSection() {
             data-testid="iframe-crack-result"
           />
         </div>
+
+        <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-amber-500" />
+                공유 링크
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                이 링크를 복사해서 누구에게나 공유할 수 있습니다.
+              </p>
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={shareUrl} 
+                  readOnly 
+                  className="flex-1 text-sm"
+                  data-testid="input-share-url"
+                />
+                <Button 
+                  onClick={copyToClipboard}
+                  size="icon"
+                  variant="outline"
+                  data-testid="button-copy-url"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowShareDialog(false)}
+              >
+                닫기
+              </Button>
+              <Button 
+                onClick={() => window.open(shareUrl, "_blank")}
+                data-testid="button-open-share"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" /> 페이지 열기
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     );
   }
@@ -461,6 +570,10 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
   const [editingJournalId, setEditingJournalId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [showJournalShareDialog, setShowJournalShareDialog] = useState(false);
+  const [journalShareUrl, setJournalShareUrl] = useState("");
+  const [isJournalSharing, setIsJournalSharing] = useState(false);
+  const [journalCopied, setJournalCopied] = useState(false);
   const [showFolderDialog, setShowFolderDialog] = useState(false);
   const [showMemberDialog, setShowMemberDialog] = useState(false);
   
@@ -564,6 +677,55 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
       setShowJournalForm(false);
     } else if (selectedFolderId) {
       setSelectedFolderId(null);
+    }
+  };
+
+  const handleShareJournal = async (journal: { id: number; title: string; content: string; category: string; createdAt: Date }) => {
+    setIsJournalSharing(true);
+    try {
+      const response = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          type: "journal",
+          title: `${selectedMemberName} 저널 - ${journal.title}`,
+          content: JSON.stringify({
+            title: journal.title,
+            content: journal.content,
+            category: journal.category,
+            memberName: selectedMemberName,
+            date: new Date(journal.createdAt).toLocaleDateString('ko-KR'),
+          }),
+          authorName: selectedMemberName,
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to create share link");
+      
+      const data = await response.json();
+      const fullUrl = `${window.location.origin}${data.url}`;
+      setJournalShareUrl(fullUrl);
+      setShowJournalShareDialog(true);
+    } catch (error) {
+      toast({
+        title: "공유 링크 생성 실패",
+        description: "다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsJournalSharing(false);
+    }
+  };
+
+  const copyJournalUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(journalShareUrl);
+      setJournalCopied(true);
+      setTimeout(() => setJournalCopied(false), 2000);
+      toast({ title: "링크가 복사되었습니다" });
+    } catch (error) {
+      toast({ title: "복사 실패", variant: "destructive" });
     }
   };
 
@@ -897,6 +1059,15 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => handleShareJournal(journal)}
+                            disabled={isJournalSharing}
+                            data-testid={`button-share-journal-${journal.id}`}
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => startEditJournal(journal)}
                             data-testid={`button-edit-journal-${journal.id}`}
                           >
@@ -924,6 +1095,52 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Dialog open={showJournalShareDialog} onOpenChange={setShowJournalShareDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-amber-500" />
+              저널 공유 링크
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              이 링크를 복사해서 누구에게나 공유할 수 있습니다.
+            </p>
+            <div className="flex items-center gap-2">
+              <Input 
+                value={journalShareUrl} 
+                readOnly 
+                className="flex-1 text-sm"
+                data-testid="input-journal-share-url"
+              />
+              <Button 
+                onClick={copyJournalUrl}
+                size="icon"
+                variant="outline"
+                data-testid="button-copy-journal-url"
+              >
+                {journalCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowJournalShareDialog(false)}
+            >
+              닫기
+            </Button>
+            <Button 
+              onClick={() => window.open(journalShareUrl, "_blank")}
+              data-testid="button-open-journal-share"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" /> 페이지 열기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
