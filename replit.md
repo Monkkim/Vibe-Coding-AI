@@ -73,6 +73,7 @@ Preferred communication style: Simple, everyday language.
   - Session management via express-session with PostgreSQL store
   - Requires `SESSION_SECRET` environment variable
   - User sessions stored in PostgreSQL
+  - **Production Note**: `trust proxy` is enabled in production for proper cookie handling behind Replit's reverse proxy
 
 ### Password Recovery
 - Uses Resend email service to send temporary passwords via email

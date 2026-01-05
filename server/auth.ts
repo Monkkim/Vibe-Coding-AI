@@ -10,6 +10,8 @@ import { Resend } from "resend";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  const isProduction = process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT === "1";
+  
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
@@ -24,7 +26,7 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isProduction,
       sameSite: "lax" as const,
       maxAge: sessionTtl,
     },
@@ -98,12 +100,19 @@ export function registerAuthRoutes(app: Express) {
       const user = await createUser(email, password, firstName);
       req.session.userId = user.id;
       
-      res.status(201).json({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        profileImageUrl: user.profileImageUrl,
+      // Explicitly save session to ensure cookie is set
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "세션 저장 중 오류가 발생했습니다." });
+        }
+        res.status(201).json({
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImageUrl: user.profileImageUrl,
+        });
       });
     } catch (error) {
       console.error("Signup error:", error);
@@ -131,12 +140,19 @@ export function registerAuthRoutes(app: Express) {
 
       req.session.userId = user.id;
       
-      res.json({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        profileImageUrl: user.profileImageUrl,
+      // Explicitly save session to ensure cookie is set
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "세션 저장 중 오류가 발생했습니다." });
+        }
+        res.json({
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImageUrl: user.profileImageUrl,
+        });
       });
     } catch (error) {
       console.error("Login error:", error);
