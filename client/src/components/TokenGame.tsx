@@ -478,6 +478,9 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
   const [customMessage, setCustomMessage] = useState("");
 
   const filteredMembers = batchMembers?.filter(member => {
+    // Must have a valid name for SelectItem value
+    if (!member.name || member.name.trim() === "") return false;
+    
     if (!user) return true;
     const memberNameLower = member.name?.toLowerCase();
     const memberEmailLower = member.email?.toLowerCase();
@@ -546,8 +549,8 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
                 <div className="p-2 text-sm text-muted-foreground">로딩 중...</div>
               ) : filteredMembers.length > 0 ? (
                 filteredMembers.map((member) => (
-                  <SelectItem key={member.id} value={member.name}>
-                    {member.name} {member.email ? `(${member.email})` : ""}
+                  <SelectItem key={member.id} value={member.name || `member-${member.id}`}>
+                    {member.name || "이름 없음"} {member.email ? `(${member.email})` : ""}
                   </SelectItem>
                 ))
               ) : (
