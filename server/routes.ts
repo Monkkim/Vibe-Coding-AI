@@ -363,6 +363,32 @@ export async function registerRoutes(
     }
   });
 
+  // Leave batch
+  app.delete(api.batchMembers.leave.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const batchId = Number(req.params.batchId);
+      const userId = req.user.id;
+      
+      await storage.leaveBatch(batchId, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Leave batch error:", error);
+      res.status(500).json({ error: "기수 탈퇴에 실패했습니다" });
+    }
+  });
+
+  // Get user's batches
+  app.get(api.batchMembers.userBatches.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const batches = await storage.getUserBatches(userId);
+      res.json(batches);
+    } catch (error) {
+      console.error("Get user batches error:", error);
+      res.status(500).json({ error: "기수 목록을 불러오는데 실패했습니다" });
+    }
+  });
+
   // --- Member Journals ---
   app.get(api.memberJournals.list.path, async (req, res) => {
     const journals = await storage.getJournalsByMember(Number(req.params.memberId));

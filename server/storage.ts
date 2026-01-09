@@ -9,7 +9,7 @@ import {
   type SharedContent, type InsertSharedContent
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, isNull, or } from "drizzle-orm";
+import { eq, desc, sql, and, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { IAuthStorage } from "./replit_integrations/auth/storage";
 
@@ -237,18 +237,8 @@ export class DatabaseStorage implements IStorage {
 
   // --- Leave Batch ---
   async leaveBatch(batchId: number, userId: string): Promise<void> {
-    // Delete tokens where user is sender or receiver in this batch
-    await db.delete(tokens).where(
-      and(
-        eq(tokens.batchId, batchId),
-        or(
-          eq(tokens.fromUserId, userId),
-          eq(tokens.toUserId, userId)
-        )
-      )
-    );
-    
-    // Delete the batch member record
+    // Only delete the batch member record
+    // Tokens are preserved for history
     await db.delete(batchMembers).where(
       and(
         eq(batchMembers.folderId, batchId),

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,17 +6,62 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Key, Eye, EyeOff, Save, Trash2, Settings as SettingsIcon } from "lucide-react";
+import { ArrowLeft, Key, Eye, EyeOff, Save, Trash2, Settings as SettingsIcon, Users, MoreVertical, LogOut } from "lucide-react";
 import { Link } from "wouter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+type UserBatch = {
+  batchId: number;
+  batchName: string;
+  memberId: number;
+  memberName: string;
+  joinedAt: string | null;
+};
 
 export function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [leaveBatchDialogOpen, setLeaveBatchDialogOpen] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState<UserBatch | null>(null);
 
   const { data: settings, isLoading } = useQuery<{ hasGeminiApiKey: boolean }>({
     queryKey: ["/api/settings"],
+  });
+
+  const { data: userBatches, isLoading: batchesLoading } = useQuery<UserBatch[]>({
+    queryKey: ["/api/user/batches"],
+  });
+
+  const leaveBatch = useMutation({
+    mutationFn: async (batchId: number) => {
+      return apiRequest("DELETE", `/api/batches/${batchId}/leave`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/batches"] });
+      toast({ title: "기수를 탈퇴했습니다" });
+      setLeaveBatchDialogOpen(false);
+      setSelectedBatch(null);
+    },
+    onError: () => {
+      toast({ title: "탈퇴 실패", variant: "destructive" });
+    },
   });
 
   const updateSettings = useMutation({
@@ -197,6 +242,92 @@ export function Settings() {
             </div>
           </div>
         </Card>
+
+        <Card className="p-6 space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-500" />
+            참가 기수
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            현재 참가 중인 기수 목록입니다. 기수를 탈퇴하면 가치 인정 명단에서 제외됩니다.
+          </p>
+          
+          {batchesLoading ? (
+            <div className="space-y-2">
+              <div className="h-12 bg-muted animate-pulse rounded-md" />
+              <div className="h-12 bg-muted animate-pulse rounded-md" />
+            </div>
+          ) : userBatches && userBatches.length > 0 ? (
+            <div className="space-y-2">
+              {userBatches.map((batch) => (
+                <div 
+                  key={batch.batchId} 
+                  className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg"
+                  data-testid={`batch-item-${batch.batchId}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{batch.batchName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {batch.memberName} · {batch.joinedAt ? new Date(batch.joinedAt).toLocaleDateString('ko-KR') : '가입일 미상'}
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        data-testid={`button-batch-menu-${batch.batchId}`}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => {
+                          setSelectedBatch(batch);
+                          setLeaveBatchDialogOpen(true);
+                        }}
+                        data-testid={`button-leave-batch-${batch.batchId}`}
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        기수 탈퇴
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              <Users className="w-10 h-10 mx-auto mb-2 opacity-50" />
+              <p>참가 중인 기수가 없습니다</p>
+            </div>
+          )}
+        </Card>
+
+        <AlertDialog open={leaveBatchDialogOpen} onOpenChange={setLeaveBatchDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>기수 탈퇴</AlertDialogTitle>
+              <AlertDialogDescription>
+                정말 <span className="font-semibold">{selectedBatch?.batchName}</span>에서 탈퇴하시겠습니까?
+                <br />
+                탈퇴 후에는 가치 인정 명단에서 제외됩니다.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>취소</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => selectedBatch && leaveBatch.mutate(selectedBatch.batchId)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-leave-batch"
+              >
+                {leaveBatch.isPending ? "탈퇴 중..." : "탈퇴하기"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

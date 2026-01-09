@@ -229,6 +229,26 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
+    leave: {
+      method: 'DELETE' as const,
+      path: '/api/batches/:batchId/leave',
+      responses: {
+        204: z.void(),
+      },
+    },
+    userBatches: {
+      method: 'GET' as const,
+      path: '/api/user/batches',
+      responses: {
+        200: z.array(z.object({
+          batchId: z.number(),
+          batchName: z.string(),
+          memberId: z.number(),
+          memberName: z.string(),
+          joinedAt: z.string().nullable(),
+        })),
+      },
+    },
   },
   memberJournals: {
     list: {
