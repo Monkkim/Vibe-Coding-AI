@@ -11,11 +11,57 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Coins, Trophy, Gift, Target, Heart, Sparkles, Clock, TrendingUp, Mail } from "lucide-react";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { Coins, Trophy, Gift, Target, Heart, Sparkles, Clock, TrendingUp, Mail, AlertCircle } from "lucide-react";
+import { useState, useMemo, useEffect, useRef, Component, type ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import type { Token } from "@shared/schema";
+
+// Safe date formatting to prevent crashes on invalid/null dates
+function safeFormatDate(dateValue: string | Date | null | undefined, formatStr: string, fallback: string = "-"): string {
+  if (!dateValue) return fallback;
+  try {
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    if (!isValid(date)) return fallback;
+    return format(date, formatStr);
+  } catch {
+    return fallback;
+  }
+}
+
+// Error boundary to prevent white screen crashes
+class TokenGameErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("TokenGame error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card className="p-6 text-center">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-destructive" />
+          <h3 className="font-bold mb-2">가치 인정 시스템 오류</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            데이터를 불러오는 중 문제가 발생했습니다.
+          </p>
+          <Button onClick={() => window.location.reload()}>
+            새로고침
+          </Button>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const AMOUNT_OPTIONS = [
   { value: 10000, label: "1만" },
@@ -33,7 +79,16 @@ const VALUE_CATEGORIES = [
   { value: "custom", label: "직접 입력", icon: Heart },
 ];
 
+// Main export wrapped with error boundary
 export function TokenGame({ batchId }: { batchId: number }) {
+  return (
+    <TokenGameErrorBoundary>
+      <TokenGameInner batchId={batchId} />
+    </TokenGameErrorBoundary>
+  );
+}
+
+function TokenGameInner({ batchId }: { batchId: number }) {
   const { data: tokens, isLoading } = useTokens(batchId);
   const { data: batchMembers } = useBatchMembers(batchId);
   const { user } = useAuth();
@@ -46,8 +101,8 @@ export function TokenGame({ batchId }: { batchId: number }) {
     if (!batchMembers || !user?.email) return [];
     const userEmail = user.email.toLowerCase();
     return batchMembers
-      .filter(m => m.email?.toLowerCase() === userEmail)
-      .map(m => m.name.toLowerCase());
+      .filter(m => m.email?.toLowerCase() === userEmail && m.name)
+      .map(m => (m.name || '').toLowerCase());
   }, [batchMembers, user?.email]);
   
   const myStats = useMemo(() => {
@@ -443,7 +498,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
                     )}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(token.createdAt), "MM/dd HH:mm")}
+                        {safeFormatDate(token.createdAt, "MM/dd HH:mm")}
                       </span>
                       <Button
                         onClick={() => handleAccept(token.id, token.amount)}
@@ -654,7 +709,7 @@ function RealtimeActivityFeed({ tokens }: { tokens: Token[] | undefined }) {
                   <span className="text-muted-foreground">: {token.receiverName}님께 받은 {(token.amount / 10000).toFixed(0)}만원 우와!</span>
                 </span>
               </div>
-              <p className="text-muted-foreground mt-1">{format(new Date(token.createdAt), "HH:mm")}</p>
+              <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
             </div>
           ))}
           {recentTokens.length === 0 && (
