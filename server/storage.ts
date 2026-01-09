@@ -9,7 +9,7 @@ import {
   type SharedContent, type InsertSharedContent
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, isNull } from "drizzle-orm";
+import { eq, desc, sql, and, isNull, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { IAuthStorage } from "./replit_integrations/auth/storage";
 
@@ -46,6 +46,12 @@ export interface IStorage extends IAuthStorage {
   
   // Journals by member
   getJournalsByMember(memberId: number): Promise<Journal[]>;
+  
+  // Leave batch (removes member and their tokens)
+  leaveBatch(batchId: number, userId: string): Promise<void>;
+  
+  // Get user's batches
+  getUserBatches(userId: string): Promise<{ batchId: number; batchName: string; memberId: number; memberName: string; joinedAt: Date | null }[]>;
 
   // Users (for token sending)
   getAllUsers(): Promise<Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>[]>;
@@ -227,6 +233,45 @@ export class DatabaseStorage implements IStorage {
   // --- Journals by Member ---
   async getJournalsByMember(memberId: number): Promise<Journal[]> {
     return await db.select().from(journals).where(eq(journals.memberId, memberId)).orderBy(desc(journals.createdAt));
+  }
+
+  // --- Leave Batch ---
+  async leaveBatch(batchId: number, userId: string): Promise<void> {
+    // Delete tokens where user is sender or receiver in this batch
+    await db.delete(tokens).where(
+      and(
+        eq(tokens.batchId, batchId),
+        or(
+          eq(tokens.fromUserId, userId),
+          eq(tokens.toUserId, userId)
+        )
+      )
+    );
+    
+    // Delete the batch member record
+    await db.delete(batchMembers).where(
+      and(
+        eq(batchMembers.folderId, batchId),
+        eq(batchMembers.userId, userId)
+      )
+    );
+  }
+
+  // --- Get User's Batches ---
+  async getUserBatches(userId: string): Promise<{ batchId: number; batchName: string; memberId: number; memberName: string; joinedAt: Date | null }[]> {
+    const result = await db.select({
+      batchId: folders.id,
+      batchName: folders.name,
+      memberId: batchMembers.id,
+      memberName: batchMembers.name,
+      joinedAt: batchMembers.joinedAt,
+    })
+    .from(batchMembers)
+    .innerJoin(folders, eq(batchMembers.folderId, folders.id))
+    .where(eq(batchMembers.userId, userId))
+    .orderBy(desc(batchMembers.joinedAt));
+    
+    return result;
   }
 
   // --- Users ---

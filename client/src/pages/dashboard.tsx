@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useFolders, useCreateFolder, useDeleteFolder, useBatchMembers, useCreateBatchMember, useDeleteBatchMember, useMemberJournals, useUpdateBatchMember } from "@/hooks/use-folders";
+import { useFolders, useCreateFolder, useDeleteFolder, useBatchMembers, useDeleteBatchMember, useMemberJournals, useUpdateBatchMember } from "@/hooks/use-folders";
 import { useCreateJournal, useUpdateJournal } from "@/hooks/use-journals";
 import { useBatch } from "@/contexts/BatchContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -23,7 +23,6 @@ import {
   Plus,
   Trash2,
   Users,
-  UserPlus,
   ArrowLeft,
   BookOpen,
   Sun,
@@ -577,10 +576,8 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
   const [journalCopied, setJournalCopied] = useState(false);
   const [showFolderDialog, setShowFolderDialog] = useState(false);
   const [showMemberDialog, setShowMemberDialog] = useState(false);
-  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   
   const { data: members, isLoading: membersLoading } = useBatchMembers(selectedFolderId);
-  const createMember = useCreateBatchMember();
   const deleteMember = useDeleteBatchMember();
   const updateMember = useUpdateBatchMember();
   const { data: memberJournals, isLoading: journalsLoading } = useMemberJournals(selectedMemberId);
@@ -601,20 +598,6 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
         setNewFolderName("");
       },
       onError: () => toast({ title: "생성 실패", variant: "destructive" })
-    });
-  };
-
-  const handleCreateMember = () => {
-    if (!newMemberName.trim() || !selectedFolderId) {
-      toast({ title: "멤버 이름을 입력하세요", variant: "destructive" });
-      return;
-    }
-    createMember.mutate({ folderId: selectedFolderId, data: { name: newMemberName } }, {
-      onSuccess: () => {
-        toast({ title: "멤버 추가됨" });
-        setNewMemberName("");
-      },
-      onError: () => toast({ title: "추가 실패", variant: "destructive" })
     });
   };
 
@@ -863,53 +846,6 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
                 data-testid="button-update-name"
               >
                 {updateMember.isPending ? "변경 중..." : "변경하기"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {selectedFolderId && !selectedMemberId && (
-          <Button 
-            onClick={() => {
-              setNewMemberName("");
-              setShowAddMemberDialog(true);
-            }}
-            className="rounded-xl bg-green-500"
-            data-testid="button-open-add-member-dialog"
-          >
-            <UserPlus className="w-4 h-4 mr-1" />
-            멤버 추가
-          </Button>
-        )}
-
-        <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>새 멤버 추가</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <Input 
-                placeholder="멤버 이름을 입력하세요" 
-                value={newMemberName}
-                onChange={(e) => setNewMemberName(e.target.value)}
-                className="rounded-xl"
-                data-testid="input-new-member"
-              />
-            </div>
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>
-                취소
-              </Button>
-              <Button 
-                onClick={() => {
-                  handleCreateMember();
-                  setShowAddMemberDialog(false);
-                }}
-                disabled={createMember.isPending || !newMemberName.trim()}
-                className="bg-green-500"
-                data-testid="button-add-member"
-              >
-                {createMember.isPending ? "추가 중..." : "추가하기"}
               </Button>
             </DialogFooter>
           </DialogContent>
