@@ -180,6 +180,8 @@ export function useUpdateBatchMember() {
     onSuccess: (_, { folderId }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/folders', folderId, 'members'] });
       queryClient.invalidateQueries({ queryKey: ['/api/batch-members'] });
+      // Also invalidate tokens to refresh receiverName after member name change
+      queryClient.invalidateQueries({ queryKey: ['/api/tokens'] });
     },
   });
 }

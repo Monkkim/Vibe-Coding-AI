@@ -172,6 +172,29 @@ export class DatabaseStorage implements IStorage {
 
   async updateBatchMember(id: number, updates: Partial<InsertBatchMember & { userId?: string; joinedAt?: Date }>): Promise<BatchMember> {
     const [updated] = await db.update(batchMembers).set(updates).where(eq(batchMembers.id, id)).returning();
+    
+    // If name was updated, sync receiverName in all tokens that reference this member
+    if (updates.name) {
+      // Update tokens where toUserId matches member id (string format)
+      await db.update(tokens)
+        .set({ receiverName: updates.name })
+        .where(eq(tokens.toUserId, id.toString()));
+      
+      // Also update by receiverEmail if the member has an email
+      if (updated.email) {
+        await db.update(tokens)
+          .set({ receiverName: updates.name })
+          .where(eq(tokens.receiverEmail, updated.email));
+      }
+      
+      // Also update by userId if the member has a linked user account
+      if (updated.userId) {
+        await db.update(tokens)
+          .set({ receiverName: updates.name })
+          .where(eq(tokens.toUserId, updated.userId));
+      }
+    }
+    
     return updated;
   }
 
