@@ -505,14 +505,15 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
 
     const message = category === "custom" ? customMessage : VALUE_CATEGORIES.find(c => c.value === category)?.label || "";
     
-    // Find the selected member to get their email
-    const selectedMember = batchMembers?.find(m => m.name === recipient);
+    // Find the selected member by ID to get their name and email
+    const selectedMember = batchMembers?.find(m => String(m.id) === recipient);
+    const receiverName = selectedMember?.name || recipient;
     const receiverEmail = selectedMember?.email || null;
     
     createToken.mutate({
       fromUserId: user?.id || "",
       toUserId: recipient,
-      receiverName: recipient,
+      receiverName: receiverName,
       receiverEmail: receiverEmail,
       senderName: user?.firstName || user?.email || "Unknown",
       amount: finalAmount,
@@ -521,7 +522,7 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
       status: "pending",
     }, {
       onSuccess: () => {
-        toast({ title: "가치 인정 완료!", description: `${recipient}님에게 ${(finalAmount / 10000).toFixed(0)}만원 가치를 인정했습니다.` });
+        toast({ title: "가치 인정 완료!", description: `${receiverName}님에게 ${(finalAmount / 10000).toFixed(0)}만원 가치를 인정했습니다.` });
         setRecipient("");
         setAmount(null);
         setCustomAmount("");
@@ -549,7 +550,7 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
                 <div className="p-2 text-sm text-muted-foreground">로딩 중...</div>
               ) : filteredMembers.length > 0 ? (
                 filteredMembers.map((member) => (
-                  <SelectItem key={member.id} value={member.name || `member-${member.id}`}>
+                  <SelectItem key={member.id} value={String(member.id)}>
                     {member.name || "이름 없음"} {member.email ? `(${member.email})` : ""}
                   </SelectItem>
                 ))
