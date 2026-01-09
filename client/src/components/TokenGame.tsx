@@ -307,10 +307,12 @@ function GameRulesSection() {
 }
 
 function ProfileCard({ user, stats }: { user: any; stats: any }) {
-  const level = Math.floor(stats.cumulative / 1000000) + 1;
-  const progress = (stats.cumulative % 1000000) / 1000000 * 100;
+  const safeStats = stats || { cumulative: 0 };
+  const cumulative = safeStats.cumulative || 0;
+  const level = Math.floor(cumulative / 1000000) + 1;
+  const progress = (cumulative % 1000000) / 1000000 * 100;
   const nextLevelAmount = level * 1000000;
-  const remaining = nextLevelAmount - stats.cumulative;
+  const remaining = nextLevelAmount - cumulative;
 
   return (
     <Card className="p-6 bg-gradient-to-br from-emerald-400 to-teal-500 text-white overflow-visible">
@@ -329,7 +331,7 @@ function ProfileCard({ user, stats }: { user: any; stats: any }) {
           </div>
           <p className="text-xs mt-1 text-emerald-100">다음 레벨까지 {(remaining / 10000).toFixed(0)}만원</p>
         </div>
-        <p className="text-lg font-bold mt-2">{(stats.cumulative / 10000).toFixed(0)}만원</p>
+        <p className="text-lg font-bold mt-2">{(cumulative / 10000).toFixed(0)}만원</p>
         <p className="text-xs text-emerald-100">받은 가치 (확정됨)</p>
       </div>
       
@@ -705,8 +707,8 @@ function RealtimeActivityFeed({ tokens }: { tokens: Token[] | undefined }) {
             <div key={token.id} className="p-2 bg-muted/30 rounded-lg text-xs">
               <div className="flex justify-between items-start">
                 <span>
-                  <span className="font-semibold">{token.senderName}</span>
-                  <span className="text-muted-foreground">: {token.receiverName}님께 받은 {(token.amount / 10000).toFixed(0)}만원 우와!</span>
+                  <span className="font-semibold">{token.senderName || "익명"}</span>
+                  <span className="text-muted-foreground">: {token.receiverName || "멤버"}님께 받은 {(token.amount / 10000).toFixed(0)}만원 우와!</span>
                 </span>
               </div>
               <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
@@ -779,10 +781,11 @@ function LeaderboardCard({ leaderboard, userName }: { leaderboard: { name: strin
 }
 
 function ReceivedStatsCard({ stats }: { stats: any }) {
+  const safeStats = stats || { today: 0, thisWeek: 0, cumulative: 0 };
   const dailyGoal = 100000;
   const weeklyGoal = 700000;
-  const dailyProgress = Math.min((stats.today / dailyGoal) * 100, 100);
-  const weeklyProgress = Math.min((stats.thisWeek / weeklyGoal) * 100, 100);
+  const dailyProgress = Math.min(((safeStats.today || 0) / dailyGoal) * 100, 100);
+  const weeklyProgress = Math.min(((safeStats.thisWeek || 0) / weeklyGoal) * 100, 100);
 
   return (
     <Card className="p-6">
@@ -793,15 +796,15 @@ function ReceivedStatsCard({ stats }: { stats: any }) {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="text-center p-4 bg-muted/30 rounded-lg">
           <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Clock className="w-3 h-3" /> 오늘</p>
-          <p className="text-2xl font-bold text-blue-600">{(stats.today / 10000).toFixed(0)}만</p>
+          <p className="text-2xl font-bold text-blue-600">{((safeStats.today || 0) / 10000).toFixed(0)}만</p>
         </div>
         <div className="text-center p-4 bg-muted/30 rounded-lg">
           <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Target className="w-3 h-3" /> 이번주</p>
-          <p className="text-2xl font-bold text-emerald-600">{(stats.thisWeek / 10000).toFixed(0)}만</p>
+          <p className="text-2xl font-bold text-emerald-600">{((safeStats.thisWeek || 0) / 10000).toFixed(0)}만</p>
         </div>
         <div className="text-center p-4 bg-muted/30 rounded-lg">
           <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Trophy className="w-3 h-3" /> 시즌 누적</p>
-          <p className="text-2xl font-bold text-amber-600">{(stats.cumulative / 10000).toFixed(0)}만</p>
+          <p className="text-2xl font-bold text-amber-600">{((safeStats.cumulative || 0) / 10000).toFixed(0)}만</p>
         </div>
       </div>
 
