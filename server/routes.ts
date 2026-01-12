@@ -259,19 +259,55 @@ export async function registerRoutes(
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
-    
+
     const tokens = await storage.getTokens();
     const targetToken = tokens.find(t => t.id === Number(req.params.id));
-    
+
     if (!targetToken) {
       return res.status(404).json({ message: "Token not found" });
     }
-    
-    const userName = user.firstName || user.email || "";
-    if (targetToken.receiverName !== userName && targetToken.toUserId !== userId) {
+
+    // Check if this token belongs to the current user
+    const userEmail = user.email?.toLowerCase();
+    const userIdentifiers = [
+      user.firstName,
+      user.email,
+      user.id,
+      `${user.firstName || ''} ${user.lastName || ''}`.trim()
+    ].filter(Boolean).map(id => id.toLowerCase());
+
+    // Get batch members with the same email to check for name matches
+    const allBatchMembers = await storage.getAllBatchMembers();
+    const myBatchMemberNames = userEmail
+      ? allBatchMembers
+          .filter(m => m.email?.toLowerCase() === userEmail && m.name)
+          .map(m => m.name!.toLowerCase())
+      : [];
+
+    // Check if token is for the current user using multiple methods
+    let isTokenForMe = false;
+
+    // Check 1: receiverEmail matches user's email (most reliable)
+    if (targetToken.receiverEmail && userEmail && targetToken.receiverEmail.toLowerCase() === userEmail) {
+      isTokenForMe = true;
+    }
+    // Check 2: toUserId matches user id
+    else if (targetToken.toUserId === userId) {
+      isTokenForMe = true;
+    }
+    // Check 3: receiverName matches any batch member with the same email as user
+    else if (targetToken.receiverName && myBatchMemberNames.includes(targetToken.receiverName.toLowerCase())) {
+      isTokenForMe = true;
+    }
+    // Check 4: receiverName matches any of user's identifiers
+    else if (targetToken.receiverName && userIdentifiers.some(id => id === targetToken.receiverName?.toLowerCase())) {
+      isTokenForMe = true;
+    }
+
+    if (!isTokenForMe) {
       return res.status(403).json({ message: "You can only accept tokens sent to you" });
     }
-    
+
     const token = await storage.acceptToken(Number(req.params.id));
     res.json(token);
   });
@@ -329,12 +365,36 @@ export async function registerRoutes(
   });
 
   app.post(api.batchMembers.create.path, async (req, res) => {
-    const input = api.batchMembers.create.input.parse({
-      ...req.body,
-      folderId: Number(req.params.folderId)
-    });
-    const member = await storage.createBatchMember(input);
-    res.status(201).json(member);
+    try {
+      const input = api.batchMembers.create.input.parse({
+        ...req.body,
+        folderId: Number(req.params.folderId)
+      });
+
+      // Validate name is not empty or just whitespace
+      if (!input.name || typeof input.name !== 'string' || input.name.trim() === '') {
+        return res.status(400).json({ error: "멤버 이름은 필수입니다." });
+      }
+
+      // Sanitize email - set to null if empty
+      let sanitizedEmail = null;
+      if (input.email && typeof input.email === 'string') {
+        const emailTrimmed = input.email.trim();
+        if (emailTrimmed.length > 0 && emailTrimmed.includes('@')) {
+          sanitizedEmail = emailTrimmed.toLowerCase();
+        }
+      }
+
+      const member = await storage.createBatchMember({
+        ...input,
+        name: input.name.trim(),
+        email: sanitizedEmail,
+      });
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Create batch member error:", error);
+      res.status(500).json({ error: "멤버 생성에 실패했습니다" });
+    }
   });
 
   app.delete(api.batchMembers.delete.path, async (req, res) => {
@@ -345,6 +405,29 @@ export async function registerRoutes(
   app.put(api.batchMembers.update.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.batchMembers.update.input.parse(req.body);
+
+      // Validate name is not empty or just whitespace if it's being updated
+      if (input.name !== undefined) {
+        if (!input.name || typeof input.name !== 'string' || input.name.trim() === '') {
+          return res.status(400).json({ error: "멤버 이름은 비어있을 수 없습니다." });
+        }
+        input.name = input.name.trim();
+      }
+
+      // Sanitize email if it's being updated
+      if (input.email !== undefined) {
+        if (input.email && typeof input.email === 'string') {
+          const emailTrimmed = input.email.trim();
+          if (emailTrimmed.length > 0 && emailTrimmed.includes('@')) {
+            input.email = emailTrimmed.toLowerCase();
+          } else {
+            input.email = null as any;
+          }
+        } else {
+          input.email = null as any;
+        }
+      }
+
       const member = await storage.updateBatchMember(Number(req.params.id), input);
       res.json(member);
     } catch (error) {

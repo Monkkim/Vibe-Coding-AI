@@ -41,7 +41,18 @@ class TokenGameErrorBoundary extends Component<{ children: ReactNode }, { hasErr
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.error("TokenGame error:", error, errorInfo);
+    console.error("🚨 TokenGame Error Boundary Caught:", {
+      error: error,
+      errorMessage: error.message,
+      errorStack: error.stack,
+      errorInfo: errorInfo,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString()
+    });
+
+    // Log to help debug which data caused the crash
+    console.error("This error is likely caused by null/undefined data in tokens or batch members");
+    console.error("Check the console for specific errors in isTokenForMe or myStats calculations");
   }
 
   render() {
@@ -53,6 +64,16 @@ class TokenGameErrorBoundary extends Component<{ children: ReactNode }, { hasErr
           <p className="text-sm text-muted-foreground mb-4">
             데이터를 불러오는 중 문제가 발생했습니다.
           </p>
+          {this.state.error && (
+            <details className="text-left mb-4 p-3 bg-muted rounded text-xs">
+              <summary className="cursor-pointer font-semibold mb-2">오류 상세 (개발자용)</summary>
+              <pre className="whitespace-pre-wrap break-all">
+                {this.state.error.message}
+                {"\n\n"}
+                {this.state.error.stack}
+              </pre>
+            </details>
+          )}
           <Button onClick={() => window.location.reload()}>
             새로고침
           </Button>
@@ -99,90 +120,165 @@ function TokenGameInner({ batchId }: { batchId: number }) {
   // Find batch member names that match the current user's email
   const myBatchMemberNames = useMemo(() => {
     if (!batchMembers || !user?.email) return [];
-    const userEmail = user.email.toLowerCase();
-    return batchMembers
-      .filter(m => m.email?.toLowerCase() === userEmail && m.name)
-      .map(m => (m.name || '').toLowerCase());
+    try {
+      const userEmail = user.email.toLowerCase();
+      return batchMembers
+        .filter(m => {
+          // Safe email comparison
+          const memberEmail = m.email;
+          if (!memberEmail || typeof memberEmail !== 'string') return false;
+          return memberEmail.toLowerCase() === userEmail && m.name;
+        })
+        .map(m => {
+          const name = m.name;
+          if (!name || typeof name !== 'string') return '';
+          return name.toLowerCase();
+        })
+        .filter(name => name.length > 0);
+    } catch (error) {
+      console.error('Error calculating myBatchMemberNames:', error);
+      return [];
+    }
   }, [batchMembers, user?.email]);
   
   const myStats = useMemo(() => {
     if (!tokens || !user) return { received: 0, given: 0, pending: 0, pendingCount: 0, today: 0, thisWeek: 0, cumulative: 0, latestPendingSender: null as string | null };
-    
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    
-    const userEmail = user.email?.toLowerCase();
-    const userIdentifiers = [
-      user.firstName,
-      user.email,
-      user.id,
-      `${user.firstName} ${user.lastName}`.trim()
-    ].filter(Boolean);
-    
-    // Check if token is for the current user by name, email, or batch member name
-    const isTokenForMe = (t: Token) => {
-      // Check receiverEmail matches user's email (most reliable)
-      if (t.receiverEmail && userEmail && t.receiverEmail.toLowerCase() === userEmail) {
-        return true;
-      }
-      // Check toUserId matches user id
-      if (t.toUserId === user.id) {
-        return true;
-      }
-      // Check receiverName matches any batch member with the same email as user
-      if (t.receiverName && myBatchMemberNames.includes(t.receiverName.toLowerCase())) {
-        return true;
-      }
-      // Check receiverName matches any of user's identifiers
-      if (t.receiverName && userIdentifiers.some(id => id?.toLowerCase() === t.receiverName?.toLowerCase())) {
-        return true;
-      }
-      return false;
-    };
-    
-    const isMe = (name: string | null | undefined) => 
-      name && userIdentifiers.some(id => id?.toLowerCase() === name.toLowerCase());
-    
-    let received = 0, given = 0, pending = 0, pendingCount = 0, today = 0, thisWeek = 0, cumulative = 0;
-    let latestPendingSender: string | null = null;
-    
-    tokens.forEach((t: Token) => {
-      if (isTokenForMe(t)) {
-        if (t.status === "pending") {
-          pending += t.amount;
-          pendingCount++;
-          if (!latestPendingSender) latestPendingSender = t.senderName;
-        } else {
-          received += t.amount;
-          cumulative += t.amount;
-          if (new Date(t.createdAt) >= startOfDay) today += t.amount;
-          if (new Date(t.createdAt) >= startOfWeek) thisWeek += t.amount;
+
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+
+      const userEmail = user.email?.toLowerCase();
+      const userIdentifiers = [
+        user.firstName,
+        user.email,
+        user.id,
+        `${user.firstName || ''} ${user.lastName || ''}`.trim()
+      ].filter(Boolean).map(id => {
+        if (typeof id === 'string') return id.toLowerCase();
+        return String(id).toLowerCase();
+      });
+
+      // Check if token is for the current user by name, email, or batch member name
+      const isTokenForMe = (t: Token) => {
+        try {
+          // Check receiverEmail matches user's email (most reliable)
+          const receiverEmail = t.receiverEmail;
+          if (receiverEmail && typeof receiverEmail === 'string' && userEmail) {
+            if (receiverEmail.toLowerCase() === userEmail) {
+              return true;
+            }
+          }
+
+          // Check toUserId matches user id
+          if (t.toUserId === user.id) {
+            return true;
+          }
+
+          // Check receiverName matches any batch member with the same email as user
+          const receiverName = t.receiverName;
+          if (receiverName && typeof receiverName === 'string') {
+            const receiverNameLower = receiverName.toLowerCase();
+
+            // Match with batch member names
+            if (myBatchMemberNames.includes(receiverNameLower)) {
+              return true;
+            }
+
+            // Match with user identifiers
+            if (userIdentifiers.some(id => id === receiverNameLower)) {
+              return true;
+            }
+          }
+
+          return false;
+        } catch (error) {
+          console.error('Error in isTokenForMe:', error, t);
+          return false;
         }
-      }
-      if (isMe(t.senderName) || t.fromUserId === user.id) {
-        given += t.amount;
-      }
-    });
+      };
     
-    return { received, given, pending, pendingCount, today, thisWeek, cumulative, latestPendingSender };
+      const isMe = (name: string | null | undefined) => {
+        try {
+          if (!name || typeof name !== 'string') return false;
+          const nameLower = name.toLowerCase();
+          return userIdentifiers.some(id => id === nameLower);
+        } catch (error) {
+          console.error('Error in isMe:', error, name);
+          return false;
+        }
+      };
+
+      let received = 0, given = 0, pending = 0, pendingCount = 0, today = 0, thisWeek = 0, cumulative = 0;
+      let latestPendingSender: string | null = null;
+
+      tokens.forEach((t: Token) => {
+        try {
+          if (isTokenForMe(t)) {
+            const amount = t.amount || 0;
+            if (t.status === "pending") {
+              pending += amount;
+              pendingCount++;
+              if (!latestPendingSender && t.senderName) {
+                latestPendingSender = t.senderName;
+              }
+            } else {
+              received += amount;
+              cumulative += amount;
+              try {
+                const createdAt = new Date(t.createdAt);
+                if (!isNaN(createdAt.getTime())) {
+                  if (createdAt >= startOfDay) today += amount;
+                  if (createdAt >= startOfWeek) thisWeek += amount;
+                }
+              } catch (dateError) {
+                console.error('Error parsing token date:', dateError, t.createdAt);
+              }
+            }
+          }
+          if (isMe(t.senderName) || t.fromUserId === user.id) {
+            given += (t.amount || 0);
+          }
+        } catch (tokenError) {
+          console.error('Error processing token:', tokenError, t);
+        }
+      });
+
+      return { received, given, pending, pendingCount, today, thisWeek, cumulative, latestPendingSender };
+    } catch (error) {
+      console.error('Error calculating myStats:', error);
+      return { received: 0, given: 0, pending: 0, pendingCount: 0, today: 0, thisWeek: 0, cumulative: 0, latestPendingSender: null };
+    }
   }, [tokens, user, myBatchMemberNames]);
 
   const leaderboard = useMemo(() => {
     if (!tokens) return [];
-    const scores: Record<string, number> = {};
-    tokens.forEach((t: Token) => {
-      const receiverName = t.receiverName?.trim();
-      const amount = t.amount || 0;
-      if (receiverName && receiverName.length > 0) {
-        scores[receiverName] = (scores[receiverName] || 0) + amount;
-      }
-    });
-    return Object.entries(scores)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 8)
-      .map(([name, amount], index) => ({ name, amount, rank: index + 1 }));
+    try {
+      const scores: Record<string, number> = {};
+      tokens.forEach((t: Token) => {
+        try {
+          const receiverName = t.receiverName;
+          if (receiverName && typeof receiverName === 'string') {
+            const trimmedName = receiverName.trim();
+            if (trimmedName.length > 0) {
+              const amount = t.amount || 0;
+              scores[trimmedName] = (scores[trimmedName] || 0) + amount;
+            }
+          }
+        } catch (tokenError) {
+          console.error('Error processing token in leaderboard:', tokenError, t);
+        }
+      });
+      return Object.entries(scores)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 8)
+        .map(([name, amount], index) => ({ name, amount, rank: index + 1 }));
+    } catch (error) {
+      console.error('Error calculating leaderboard:', error);
+      return [];
+    }
   }, [tokens]);
 
   useEffect(() => {
@@ -381,23 +477,44 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
   
   // Check if token is for the current user by name, email, or batch member name
   const isTokenForMe = (t: Token) => {
-    // Check receiverEmail matches user's email (most reliable)
-    if (t.receiverEmail && userEmail && t.receiverEmail.toLowerCase() === userEmail) {
-      return true;
+    try {
+      // Check receiverEmail matches user's email (most reliable)
+      const receiverEmail = t.receiverEmail;
+      if (receiverEmail && typeof receiverEmail === 'string' && userEmail) {
+        if (receiverEmail.toLowerCase() === userEmail) {
+          return true;
+        }
+      }
+
+      // Check toUserId matches user id
+      if (t.toUserId === user?.id) {
+        return true;
+      }
+
+      // Check receiverName matches any batch member with the same email as user
+      const receiverName = t.receiverName;
+      if (receiverName && typeof receiverName === 'string') {
+        const receiverNameLower = receiverName.toLowerCase();
+
+        // Match with batch member names
+        if (myBatchMemberNames.includes(receiverNameLower)) {
+          return true;
+        }
+
+        // Match with user identifiers
+        if (userIdentifiers.some(id => {
+          if (!id || typeof id !== 'string') return false;
+          return id.toLowerCase() === receiverNameLower;
+        })) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error in isTokenForMe (PendingReceiveCard):', error, t);
+      return false;
     }
-    // Check toUserId matches user id
-    if (t.toUserId === user?.id) {
-      return true;
-    }
-    // Check receiverName matches any batch member with the same email as user
-    if (t.receiverName && myBatchMemberNames.includes(t.receiverName.toLowerCase())) {
-      return true;
-    }
-    // Check receiverName matches any of user's identifiers
-    if (t.receiverName && userIdentifiers.some(id => id?.toLowerCase() === t.receiverName?.toLowerCase())) {
-      return true;
-    }
-    return false;
   };
   
   const pendingTokens = tokens?.filter(
@@ -737,21 +854,30 @@ function RealtimeActivityFeed({ tokens }: { tokens: Token[] | undefined }) {
       <ScrollArea className="h-[200px]">
         <div className="space-y-2">
           {recentTokens.map((token: Token) => {
-            const senderName = token.senderName?.trim() || "익명";
-            const receiverName = token.receiverName?.trim() || "멤버";
-            const amount = token.amount || 0;
+            try {
+              const senderName = token.senderName && typeof token.senderName === 'string'
+                ? token.senderName.trim() || "익명"
+                : "익명";
+              const receiverName = token.receiverName && typeof token.receiverName === 'string'
+                ? token.receiverName.trim() || "멤버"
+                : "멤버";
+              const amount = token.amount || 0;
 
-            return (
-              <div key={token.id} className="p-2 bg-muted/30 rounded-lg text-xs">
-                <div className="flex justify-between items-start">
-                  <span>
-                    <span className="font-semibold">{senderName}</span>
-                    <span className="text-muted-foreground">: {receiverName}님께 받은 {(amount / 10000).toFixed(0)}만원 우와!</span>
-                  </span>
+              return (
+                <div key={token.id} className="p-2 bg-muted/30 rounded-lg text-xs">
+                  <div className="flex justify-between items-start">
+                    <span>
+                      <span className="font-semibold">{senderName}</span>
+                      <span className="text-muted-foreground">: {receiverName}님께 받은 {(amount / 10000).toFixed(0)}만원 우와!</span>
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
                 </div>
-                <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
-              </div>
-            );
+              );
+            } catch (error) {
+              console.error('Error rendering token in activity feed:', error, token);
+              return null;
+            }
           })}
           {recentTokens.length === 0 && (
             <p className="text-center text-muted-foreground text-sm py-4">아직 활동이 없습니다</p>
