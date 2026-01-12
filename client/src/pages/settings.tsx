@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as React from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Key, Eye, EyeOff, Save, Trash2, Settings as SettingsIcon, Users, MoreVertical, LogOut } from "lucide-react";
+import { ArrowLeft, Key, Eye, EyeOff, Save, Trash2, Settings as SettingsIcon, Users, MoreVertical, LogOut, Wand2, RotateCcw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Link } from "wouter";
 import {
   DropdownMenu,
@@ -40,6 +42,11 @@ export function Settings() {
   const [showKey, setShowKey] = useState(false);
   const [leaveBatchDialogOpen, setLeaveBatchDialogOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<UserBatch | null>(null);
+  
+  const [youtubePrompt, setYoutubePrompt] = useState("");
+  const [threadsPrompt, setThreadsPrompt] = useState("");
+  const [reelsPrompt, setReelsPrompt] = useState("");
+  const [promptsLoaded, setPromptsLoaded] = useState(false);
 
   const { data: settings, isLoading } = useQuery<{ hasGeminiApiKey: boolean }>({
     queryKey: ["/api/settings"],
@@ -48,6 +55,42 @@ export function Settings() {
   const { data: userBatches, isLoading: batchesLoading } = useQuery<UserBatch[]>({
     queryKey: ["/api/user/batches"],
   });
+
+  const { data: promptTemplates, isLoading: promptsLoading } = useQuery<{
+    youtubePrompt: string;
+    threadsPrompt: string;
+    reelsPrompt: string;
+  }>({
+    queryKey: ["/api/ai/prompts"],
+  });
+
+  const updatePrompts = useMutation({
+    mutationFn: async (prompts: { youtubePrompt: string; threadsPrompt: string; reelsPrompt: string }) => {
+      return apiRequest("PUT", "/api/ai/prompts", prompts);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai/prompts"] });
+      toast({ title: "프롬프트가 저장되었습니다" });
+    },
+    onError: () => {
+      toast({ title: "저장 실패", variant: "destructive" });
+    },
+  });
+
+  const defaultPrompts = {
+    youtube: "당신은 유튜브 콘텐츠 전문가입니다. 다음 내용을 기반으로 시청자의 관심을 끄는 유튜브 대본을 작성해주세요. 인트로, 본론, 결론 구조로 작성하고, 시청자 참여를 유도하는 멘트를 포함해주세요.",
+    threads: "당신은 SNS 콘텐츠 전문가입니다. 다음 내용을 기반으로 쓰레드에 올릴 짧고 임팩트 있는 글을 작성해주세요. 500자 이내로, 핵심 메시지가 잘 전달되도록 작성해주세요.",
+    reels: "당신은 인스타그램 릴스 전문가입니다. 다음 내용을 기반으로 15-60초 분량의 릴스 대본을 작성해주세요. 짧고 강렬한 훅, 핵심 내용, 행동 유도 문구를 포함해주세요.",
+  };
+
+  React.useEffect(() => {
+    if (promptTemplates && !promptsLoaded) {
+      setYoutubePrompt(promptTemplates.youtubePrompt || defaultPrompts.youtube);
+      setThreadsPrompt(promptTemplates.threadsPrompt || defaultPrompts.threads);
+      setReelsPrompt(promptTemplates.reelsPrompt || defaultPrompts.reels);
+      setPromptsLoaded(true);
+    }
+  }, [promptTemplates, promptsLoaded]);
 
   const leaveBatch = useMutation({
     mutationFn: async (batchId: number) => {
@@ -225,6 +268,104 @@ export function Settings() {
                   저장
                 </Button>
               </div>
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-6 space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-violet-500" />
+              원소스 멀티유즈 프롬프트
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              각 플랫폼별 콘텐츠 생성에 사용되는 AI 프롬프트를 커스터마이즈할 수 있습니다.
+            </p>
+          </div>
+
+          {promptsLoading ? (
+            <div className="space-y-4">
+              <div className="h-24 bg-muted animate-pulse rounded-md" />
+              <div className="h-24 bg-muted animate-pulse rounded-md" />
+              <div className="h-24 bg-muted animate-pulse rounded-md" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm font-medium">YouTube 대본 프롬프트</label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setYoutubePrompt(defaultPrompts.youtube)}
+                    className="text-xs"
+                    data-testid="button-reset-youtube-prompt"
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" /> 기본값
+                  </Button>
+                </div>
+                <Textarea
+                  value={youtubePrompt}
+                  onChange={(e) => setYoutubePrompt(e.target.value)}
+                  placeholder="YouTube 대본 생성 프롬프트..."
+                  className="min-h-[100px] resize-none"
+                  data-testid="input-youtube-prompt"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm font-medium">Threads 포스트 프롬프트</label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setThreadsPrompt(defaultPrompts.threads)}
+                    className="text-xs"
+                    data-testid="button-reset-threads-prompt"
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" /> 기본값
+                  </Button>
+                </div>
+                <Textarea
+                  value={threadsPrompt}
+                  onChange={(e) => setThreadsPrompt(e.target.value)}
+                  placeholder="Threads 포스트 생성 프롬프트..."
+                  className="min-h-[100px] resize-none"
+                  data-testid="input-threads-prompt"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm font-medium">Reels 대본 프롬프트</label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setReelsPrompt(defaultPrompts.reels)}
+                    className="text-xs"
+                    data-testid="button-reset-reels-prompt"
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" /> 기본값
+                  </Button>
+                </div>
+                <Textarea
+                  value={reelsPrompt}
+                  onChange={(e) => setReelsPrompt(e.target.value)}
+                  placeholder="Reels 대본 생성 프롬프트..."
+                  className="min-h-[100px] resize-none"
+                  data-testid="input-reels-prompt"
+                />
+              </div>
+
+              <Button
+                onClick={() => updatePrompts.mutate({ youtubePrompt, threadsPrompt, reelsPrompt })}
+                disabled={updatePrompts.isPending}
+                className="w-full bg-violet-500 hover:bg-violet-600"
+                data-testid="button-save-prompts"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {updatePrompts.isPending ? "저장 중..." : "프롬프트 저장"}
+              </Button>
             </div>
           )}
         </Card>

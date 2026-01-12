@@ -595,6 +595,18 @@ export async function registerRoutes(
       const userId = req.user!.id;
       const { youtubePrompt, threadsPrompt, reelsPrompt } = req.body;
       
+      // Validate prompts are strings and reasonable length
+      const maxLength = 5000;
+      const validatePrompt = (prompt: any, name: string) => {
+        if (prompt !== undefined && (typeof prompt !== 'string' || prompt.length > maxLength)) {
+          throw new Error(`${name} 프롬프트가 유효하지 않습니다.`);
+        }
+      };
+      
+      validatePrompt(youtubePrompt, 'YouTube');
+      validatePrompt(threadsPrompt, 'Threads');
+      validatePrompt(reelsPrompt, 'Reels');
+      
       const templates = await storage.upsertAiPromptTemplates(userId, {
         youtubePrompt,
         threadsPrompt,
@@ -602,8 +614,11 @@ export async function registerRoutes(
       });
       
       res.json(templates);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Update prompts error:", error);
+      if (error.message?.includes('프롬프트가 유효하지')) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "프롬프트 저장에 실패했습니다." });
     }
   });
@@ -614,8 +629,18 @@ export async function registerRoutes(
       const userId = req.user!.id;
       const { content } = req.body;
       
-      if (!content?.trim()) {
+      // Validate input
+      if (!content || typeof content !== 'string') {
         return res.status(400).json({ error: "내용을 입력해주세요." });
+      }
+      
+      const trimmedContent = content.trim();
+      if (!trimmedContent) {
+        return res.status(400).json({ error: "내용을 입력해주세요." });
+      }
+      
+      if (trimmedContent.length > 50000) {
+        return res.status(400).json({ error: "내용이 너무 깁니다. 50,000자 이하로 입력해주세요." });
       }
       
       // Get user's API key
@@ -636,22 +661,22 @@ export async function registerRoutes(
       const [youtubeResult, threadsResult, reelsResult] = await Promise.all([
         ai.models.generateContent({
           model: "gemini-2.5-flash",
-          contents: [{ role: "user", parts: [{ text: `${templates.youtubePrompt}\n\n원본 내용:\n${content}` }] }],
+          contents: [{ role: "user", parts: [{ text: `${templates.youtubePrompt}\n\n원본 내용:\n${trimmedContent}` }] }],
         }),
         ai.models.generateContent({
           model: "gemini-2.5-flash",
-          contents: [{ role: "user", parts: [{ text: `${templates.threadsPrompt}\n\n원본 내용:\n${content}` }] }],
+          contents: [{ role: "user", parts: [{ text: `${templates.threadsPrompt}\n\n원본 내용:\n${trimmedContent}` }] }],
         }),
         ai.models.generateContent({
           model: "gemini-2.5-flash",
-          contents: [{ role: "user", parts: [{ text: `${templates.reelsPrompt}\n\n원본 내용:\n${content}` }] }],
+          contents: [{ role: "user", parts: [{ text: `${templates.reelsPrompt}\n\n원본 내용:\n${trimmedContent}` }] }],
         }),
       ]);
       
       res.json({
-        youtube: youtubeResult.text || "",
-        threads: threadsResult.text || "",
-        reels: reelsResult.text || "",
+        youtube: youtubeResult.text ?? "",
+        threads: threadsResult.text ?? "",
+        reels: reelsResult.text ?? "",
       });
     } catch (error: any) {
       console.error("Multi-use generation error:", error);
