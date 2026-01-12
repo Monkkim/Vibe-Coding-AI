@@ -445,9 +445,9 @@ function ProfileCard({ user, stats }: { user: any; stats: any }) {
   );
 }
 
-function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames, openFromHeader, onCloseFromHeader }: { 
-  pending: number; 
-  tokens: Token[] | undefined; 
+function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames, openFromHeader, onCloseFromHeader }: {
+  pending: number;
+  tokens: Token[] | undefined;
   user: any;
   batchId: number;
   myBatchMemberNames: string[];
@@ -457,13 +457,22 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
   const acceptToken = useAcceptToken(batchId);
   const { toast } = useToast();
   const [showPendingDialog, setShowPendingDialog] = useState(false);
-  
-  const isDialogOpen = showPendingDialog || openFromHeader;
-  
+
+  // Sync openFromHeader with internal state to prevent Dialog state conflicts
+  useEffect(() => {
+    if (openFromHeader) {
+      setShowPendingDialog(true);
+    }
+  }, [openFromHeader]);
+
   const handleCloseDialog = (open: boolean) => {
     if (!open) {
       setShowPendingDialog(false);
-      onCloseFromHeader?.();
+      if (onCloseFromHeader) {
+        onCloseFromHeader();
+      }
+    } else {
+      setShowPendingDialog(true);
     }
   };
   
@@ -524,9 +533,25 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
   const handleAccept = (tokenId: number, amount: number) => {
     acceptToken.mutate(tokenId, {
       onSuccess: () => {
-        toast({ 
-          title: "가치를 받았습니다!", 
-          description: `${(amount / 10000).toFixed(0)}만원이 레벨에 반영되었습니다.` 
+        toast({
+          title: "가치를 받았습니다!",
+          description: `${(amount / 10000).toFixed(0)}만원이 레벨에 반영되었습니다.`
+        });
+        // Close dialog if no more pending tokens after accepting
+        const remainingTokens = pendingTokens.filter(t => t.id !== tokenId);
+        if (remainingTokens.length === 0) {
+          setShowPendingDialog(false);
+          if (onCloseFromHeader) {
+            onCloseFromHeader();
+          }
+        }
+      },
+      onError: (error: any) => {
+        console.error("Token accept error:", error);
+        toast({
+          title: "토큰 수락 실패",
+          description: error?.message || "토큰을 수락하는 중 오류가 발생했습니다.",
+          variant: "destructive"
         });
       },
     });
@@ -584,7 +609,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
         </div>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
+      <Dialog open={showPendingDialog} onOpenChange={handleCloseDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-pink-600">
