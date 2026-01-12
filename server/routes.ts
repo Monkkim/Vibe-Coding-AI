@@ -569,6 +569,99 @@ export async function registerRoutes(
     }
   });
 
+  // === AI PROMPT TEMPLATES (원소스 멀티유즈) ===
+  
+  // Get user's prompt templates
+  app.get("/api/ai/prompts", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      let templates = await storage.getAiPromptTemplates(userId);
+      
+      // If no templates exist, create default ones
+      if (!templates) {
+        templates = await storage.upsertAiPromptTemplates(userId, {});
+      }
+      
+      res.json(templates);
+    } catch (error) {
+      console.error("Get prompts error:", error);
+      res.status(500).json({ error: "프롬프트를 불러오는데 실패했습니다." });
+    }
+  });
+  
+  // Update user's prompt templates
+  app.put("/api/ai/prompts", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { youtubePrompt, threadsPrompt, reelsPrompt } = req.body;
+      
+      const templates = await storage.upsertAiPromptTemplates(userId, {
+        youtubePrompt,
+        threadsPrompt,
+        reelsPrompt,
+      });
+      
+      res.json(templates);
+    } catch (error) {
+      console.error("Update prompts error:", error);
+      res.status(500).json({ error: "프롬프트 저장에 실패했습니다." });
+    }
+  });
+  
+  // Generate multi-use content
+  app.post("/api/ai/multi-use", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { content } = req.body;
+      
+      if (!content?.trim()) {
+        return res.status(400).json({ error: "내용을 입력해주세요." });
+      }
+      
+      // Get user's API key
+      const apiKey = await storage.getUserGeminiApiKey(userId);
+      if (!apiKey) {
+        return res.status(400).json({ error: "Gemini API 키를 설정에서 먼저 입력해주세요." });
+      }
+      
+      // Get user's prompt templates
+      let templates = await storage.getAiPromptTemplates(userId);
+      if (!templates) {
+        templates = await storage.upsertAiPromptTemplates(userId, {});
+      }
+      
+      const ai = new GoogleGenAI({ apiKey });
+      
+      // Generate content for each platform in parallel
+      const [youtubeResult, threadsResult, reelsResult] = await Promise.all([
+        ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [{ role: "user", parts: [{ text: `${templates.youtubePrompt}\n\n원본 내용:\n${content}` }] }],
+        }),
+        ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [{ role: "user", parts: [{ text: `${templates.threadsPrompt}\n\n원본 내용:\n${content}` }] }],
+        }),
+        ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [{ role: "user", parts: [{ text: `${templates.reelsPrompt}\n\n원본 내용:\n${content}` }] }],
+        }),
+      ]);
+      
+      res.json({
+        youtube: youtubeResult.text || "",
+        threads: threadsResult.text || "",
+        reels: reelsResult.text || "",
+      });
+    } catch (error: any) {
+      console.error("Multi-use generation error:", error);
+      if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("API key")) {
+        return res.status(401).json({ error: "API 키가 유효하지 않습니다. 설정에서 올바른 키를 입력해주세요." });
+      }
+      res.status(500).json({ error: "콘텐츠 생성 중 오류가 발생했습니다." });
+    }
+  });
+
   // --- Seed Data (Check if empty and seed) ---
   await seedDatabase();
 

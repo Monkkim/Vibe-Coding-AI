@@ -1,12 +1,13 @@
 import { 
-  users, journals, tokens, leads, folders, batchMembers, sharedContent,
+  users, journals, tokens, leads, folders, batchMembers, sharedContent, aiPromptTemplates,
   type User,
   type Journal, type InsertJournal,
   type Token, type InsertToken,
   type Lead, type InsertLead,
   type Folder, type InsertFolder,
   type BatchMember, type InsertBatchMember,
-  type SharedContent, type InsertSharedContent
+  type SharedContent, type InsertSharedContent,
+  type AiPromptTemplate
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, isNull } from "drizzle-orm";
@@ -63,6 +64,14 @@ export interface IStorage extends IAuthStorage {
   // Shared Content (Web Sharing)
   createSharedContent(content: InsertSharedContent): Promise<SharedContent>;
   getSharedContent(id: string): Promise<SharedContent | null>;
+
+  // AI Prompt Templates (원소스 멀티유즈)
+  getAiPromptTemplates(userId: string): Promise<AiPromptTemplate | null>;
+  upsertAiPromptTemplates(userId: string, templates: Partial<{
+    youtubePrompt: string;
+    threadsPrompt: string;
+    reelsPrompt: string;
+  }>): Promise<AiPromptTemplate>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -320,6 +329,28 @@ export class DatabaseStorage implements IStorage {
   async getSharedContent(id: string): Promise<SharedContent | null> {
     const [shared] = await db.select().from(sharedContent).where(eq(sharedContent.id, id));
     return shared || null;
+  }
+
+  // --- AI Prompt Templates (원소스 멀티유즈) ---
+  async getAiPromptTemplates(userId: string): Promise<AiPromptTemplate | null> {
+    const [template] = await db.select().from(aiPromptTemplates).where(eq(aiPromptTemplates.userId, userId));
+    return template || null;
+  }
+
+  async upsertAiPromptTemplates(userId: string, templates: Partial<{
+    youtubePrompt: string;
+    threadsPrompt: string;
+    reelsPrompt: string;
+  }>): Promise<AiPromptTemplate> {
+    const [result] = await db
+      .insert(aiPromptTemplates)
+      .values({ userId, ...templates })
+      .onConflictDoUpdate({
+        target: aiPromptTemplates.userId,
+        set: { ...templates, updatedAt: new Date() },
+      })
+      .returning();
+    return result;
   }
 }
 
