@@ -35,7 +35,8 @@ import {
   Share2,
   Copy,
   Check,
-  ExternalLink
+  ExternalLink,
+  Wand2
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useState, useRef, useEffect } from "react";
@@ -46,7 +47,7 @@ export function Dashboard() {
   const { user, logout } = useAuth();
   const { selectedBatch, clearBatch } = useBatch();
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<"crack" | "token" | "batch">("crack");
+  const [activeTab, setActiveTab] = useState<"crack" | "token" | "batch" | "multiuse">("crack");
 
   useEffect(() => {
     if (!selectedBatch) {
@@ -101,6 +102,7 @@ export function Dashboard() {
             {activeTab === "crack" && <CrackTimeSection />}
             {activeTab === "token" && <TokenGame batchId={selectedBatch.id} />}
             {activeTab === "batch" && <BatchManager selectedBatchId={selectedBatch.id} />}
+            {activeTab === "multiuse" && <MultiUseSection />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -116,7 +118,7 @@ function Sidebar({
   batchName,
   onChangeBatch
 }: { 
-  setActiveTab: (v: "crack" | "token" | "batch") => void, 
+  setActiveTab: (v: "crack" | "token" | "batch" | "multiuse") => void, 
   activeTab: string,
   onLogout: () => void,
   user: any,
@@ -159,6 +161,12 @@ function Sidebar({
             label="멤버 관리" 
             active={activeTab === "batch"}
             onClick={() => setActiveTab("batch")}
+          />
+          <SidebarItem 
+            icon={<Wand2 className="w-4 h-4" />} 
+            label="원소스 멀티유즈" 
+            active={activeTab === "multiuse"}
+            onClick={() => setActiveTab("multiuse")}
           />
         </nav>
       </div>
@@ -1168,6 +1176,206 @@ function BatchManager({ selectedBatchId }: { selectedBatchId: number }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function MultiUseSection() {
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [results, setResults] = useState<{ youtube: string; threads: string; reels: string } | null>(null);
+  const [activeResultTab, setActiveResultTab] = useState<"youtube" | "threads" | "reels">("youtube");
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/ai/multi-use", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ content: input }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "콘텐츠 생성에 실패했습니다.");
+      }
+
+      setResults(data);
+    } catch (error: any) {
+      toast({ title: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setInput("");
+    setResults(null);
+    setActiveResultTab("youtube");
+  };
+
+  const copyToClipboard = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast({ title: "복사되었습니다" });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getCurrentContent = () => {
+    if (!results) return "";
+    switch (activeResultTab) {
+      case "youtube": return results.youtube;
+      case "threads": return results.threads;
+      case "reels": return results.reels;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card className="p-12">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-lg font-medium text-foreground">콘텐츠 생성 중...</p>
+            <p className="text-sm text-muted-foreground text-center">
+              YouTube, Threads, Reels 콘텐츠를 동시에 생성하고 있습니다
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (results) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }}
+        className="max-w-3xl mx-auto space-y-4"
+      >
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h2 className="text-lg font-semibold text-foreground">생성된 콘텐츠</h2>
+          <Button 
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid="button-new-multiuse"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" /> 새로 만들기
+          </Button>
+        </div>
+
+        <div className="flex gap-2 border-b border-border pb-2">
+          {(["youtube", "threads", "reels"] as const).map((tab) => (
+            <Button
+              key={tab}
+              variant={activeResultTab === tab ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveResultTab(tab)}
+              className={activeResultTab === tab ? "bg-violet-500 hover:bg-violet-600" : ""}
+              data-testid={`tab-${tab}`}
+            >
+              {tab === "youtube" && "YouTube"}
+              {tab === "threads" && "Threads"}
+              {tab === "reels" && "Reels"}
+            </Button>
+          ))}
+        </div>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <span className="text-sm font-medium text-muted-foreground">
+              {activeResultTab === "youtube" && "YouTube 대본"}
+              {activeResultTab === "threads" && "Threads 포스트"}
+              {activeResultTab === "reels" && "Reels 대본"}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => copyToClipboard(getCurrentContent())}
+              data-testid="button-copy-content"
+            >
+              {copied ? <Check className="w-4 h-4 mr-2 text-green-500" /> : <Copy className="w-4 h-4 mr-2" />}
+              복사
+            </Button>
+          </div>
+          <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 p-4 rounded-lg max-h-[500px] overflow-y-auto">
+            {getCurrentContent()}
+          </div>
+        </Card>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-gradient-to-b from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-violet-900/20 rounded-2xl overflow-hidden shadow-lg">
+        <div className="bg-violet-500 dark:bg-violet-600 px-6 py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Wand2 className="w-6 h-6 text-white" />
+            <span className="text-white font-bold text-xl tracking-wide">원소스 멀티유즈</span>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="border-l-4 border-violet-500 pl-4">
+            <h2 className="text-xl font-bold text-foreground">하나의 콘텐츠, 세 가지 변신</h2>
+            <p className="text-violet-600 dark:text-violet-400 text-sm mt-1">
+              원본 텍스트를 YouTube, Threads, Reels에 맞게 자동 변환합니다
+            </p>
+          </div>
+
+          <Card className="bg-white/80 dark:bg-black/30 border-0 shadow-sm">
+            <div className="p-5">
+              <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 font-semibold mb-3 text-sm">
+                <Wand2 className="w-4 h-4" />
+                원본 콘텐츠
+              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="변환하고 싶은 원본 내용을 입력하세요. 강의 내용, 블로그 글, 아이디어 메모 등 무엇이든 괜찮습니다."
+                  className="min-h-[180px] resize-none border-violet-200 dark:border-violet-800 focus:ring-violet-500 bg-white/50 dark:bg-black/20"
+                  data-testid="input-multiuse-content"
+                />
+                <Button 
+                  type="submit" 
+                  disabled={!input.trim()}
+                  className="w-full bg-violet-500 hover:bg-violet-600 text-white font-semibold"
+                  data-testid="button-multiuse-submit"
+                >
+                  <span className="flex items-center gap-2">
+                    <Wand2 className="w-4 h-4" /> 콘텐츠 생성하기
+                  </span>
+                </Button>
+              </form>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="p-3 rounded-lg bg-white/60 dark:bg-black/20">
+              <p className="text-xs text-muted-foreground">YouTube</p>
+              <p className="text-sm font-medium text-foreground">대본 형식</p>
+            </div>
+            <div className="p-3 rounded-lg bg-white/60 dark:bg-black/20">
+              <p className="text-xs text-muted-foreground">Threads</p>
+              <p className="text-sm font-medium text-foreground">짧은 포스트</p>
+            </div>
+            <div className="p-3 rounded-lg bg-white/60 dark:bg-black/20">
+              <p className="text-xs text-muted-foreground">Reels</p>
+              <p className="text-sm font-medium text-foreground">영상 대본</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
