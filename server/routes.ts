@@ -217,10 +217,40 @@ export async function registerRoutes(
   });
 
   app.post(api.tokens.create.path, isAuthenticated, async (req: any, res) => {
-    const fromUserId = req.user.id;
-    const input = api.tokens.create.input.parse({ ...req.body, fromUserId });
-    const token = await storage.createToken(input);
-    res.status(201).json(token);
+    try {
+      const fromUserId = req.user.id;
+      const input = api.tokens.create.input.parse({ ...req.body, fromUserId });
+
+      // Additional validation for receiverName (must not be empty or just whitespace)
+      if (!input.receiverName || typeof input.receiverName !== 'string' || input.receiverName.trim() === '') {
+        return res.status(400).json({ error: "받는 사람의 이름이 유효하지 않습니다." });
+      }
+
+      // Sanitize receiverEmail - set to null if empty or invalid
+      let sanitizedEmail = null;
+      if (input.receiverEmail && typeof input.receiverEmail === 'string') {
+        const emailTrimmed = input.receiverEmail.trim();
+        if (emailTrimmed.length > 0 && emailTrimmed.includes('@')) {
+          sanitizedEmail = emailTrimmed.toLowerCase();
+        }
+      }
+
+      // Create token with sanitized data
+      const tokenData = {
+        ...input,
+        receiverName: input.receiverName.trim(),
+        receiverEmail: sanitizedEmail,
+      };
+
+      const token = await storage.createToken(tokenData);
+      res.status(201).json(token);
+    } catch (error: any) {
+      console.error("Token creation error:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "입력 데이터가 올바르지 않습니다.", errors: error.errors });
+      }
+      res.status(500).json({ message: "토큰 발행에 실패했습니다." });
+    }
   });
 
   app.post(api.tokens.accept.path, isAuthenticated, async (req: any, res) => {

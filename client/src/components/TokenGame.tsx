@@ -173,8 +173,10 @@ function TokenGameInner({ batchId }: { batchId: number }) {
     if (!tokens) return [];
     const scores: Record<string, number> = {};
     tokens.forEach((t: Token) => {
-      if (t.receiverName) {
-        scores[t.receiverName] = (scores[t.receiverName] || 0) + t.amount;
+      const receiverName = t.receiverName?.trim();
+      const amount = t.amount || 0;
+      if (receiverName && receiverName.length > 0) {
+        scores[receiverName] = (scores[receiverName] || 0) + amount;
       }
     });
     return Object.entries(scores)
@@ -535,21 +537,24 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
   const [customMessage, setCustomMessage] = useState("");
 
   const filteredMembers = batchMembers?.filter(member => {
-    // Must have a valid name for SelectItem value
-    if (!member.name || member.name.trim() === "") return false;
-    
+    // Must have a valid name for SelectItem value (non-empty after trimming)
+    if (!member.name || typeof member.name !== 'string' || member.name.trim() === "") return false;
+
+    // Must have either email or valid id
+    if (!member.email && !member.id) return false;
+
     if (!user) return true;
-    const memberNameLower = member.name?.toLowerCase();
-    const memberEmailLower = member.email?.toLowerCase();
-    const userFirstNameLower = user.firstName?.toLowerCase();
-    const userEmailLower = user.email?.toLowerCase();
+    const memberNameLower = member.name?.toLowerCase().trim();
+    const memberEmailLower = member.email?.toLowerCase().trim();
+    const userFirstNameLower = user.firstName?.toLowerCase().trim();
+    const userEmailLower = user.email?.toLowerCase().trim();
     const userFullNameLower = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
-    
+
     if (memberNameLower === userFirstNameLower) return false;
     if (memberNameLower === userEmailLower) return false;
     if (memberNameLower === userFullNameLower) return false;
     if (memberEmailLower && memberEmailLower === userEmailLower) return false;
-    
+
     return true;
   }) || [];
 
@@ -561,12 +566,32 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
     }
 
     const message = category === "custom" ? customMessage : VALUE_CATEGORIES.find(c => c.value === category)?.label || "";
-    
+
     // Find the selected member by ID to get their name and email
     const selectedMember = batchMembers?.find(m => String(m.id) === recipient);
-    const receiverName = selectedMember?.name || recipient;
-    const receiverEmail = selectedMember?.email || null;
-    
+
+    // Validate selectedMember exists and has required fields
+    if (!selectedMember) {
+      toast({
+        title: "오류",
+        description: "선택한 멤버를 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const receiverName = selectedMember.name?.trim();
+    if (!receiverName) {
+      toast({
+        title: "오류",
+        description: "선택한 멤버의 이름이 올바르지 않습니다. 기수 관리자에게 문의해주세요.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const receiverEmail = selectedMember.email?.trim() || null;
+
     createToken.mutate({
       fromUserId: user?.id || "",
       toUserId: recipient,
@@ -585,6 +610,14 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
         setCustomAmount("");
         setCategory("");
         setCustomMessage("");
+      },
+      onError: (error: any) => {
+        console.error("Token creation error:", error);
+        toast({
+          title: "가치 인정 실패",
+          description: error?.message || "토큰 발행 중 오류가 발생했습니다. 다시 시도해주세요.",
+          variant: "destructive"
+        });
       },
     });
   };
@@ -703,17 +736,23 @@ function RealtimeActivityFeed({ tokens }: { tokens: Token[] | undefined }) {
       </h3>
       <ScrollArea className="h-[200px]">
         <div className="space-y-2">
-          {recentTokens.map((token: Token) => (
-            <div key={token.id} className="p-2 bg-muted/30 rounded-lg text-xs">
-              <div className="flex justify-between items-start">
-                <span>
-                  <span className="font-semibold">{token.senderName || "익명"}</span>
-                  <span className="text-muted-foreground">: {token.receiverName || "멤버"}님께 받은 {(token.amount / 10000).toFixed(0)}만원 우와!</span>
-                </span>
+          {recentTokens.map((token: Token) => {
+            const senderName = token.senderName?.trim() || "익명";
+            const receiverName = token.receiverName?.trim() || "멤버";
+            const amount = token.amount || 0;
+
+            return (
+              <div key={token.id} className="p-2 bg-muted/30 rounded-lg text-xs">
+                <div className="flex justify-between items-start">
+                  <span>
+                    <span className="font-semibold">{senderName}</span>
+                    <span className="text-muted-foreground">: {receiverName}님께 받은 {(amount / 10000).toFixed(0)}만원 우와!</span>
+                  </span>
+                </div>
+                <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
               </div>
-              <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
-            </div>
-          ))}
+            );
+          })}
           {recentTokens.length === 0 && (
             <p className="text-center text-muted-foreground text-sm py-4">아직 활동이 없습니다</p>
           )}
