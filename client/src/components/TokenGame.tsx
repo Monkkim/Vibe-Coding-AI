@@ -481,7 +481,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
     user.firstName,
     user.email,
     user.id,
-    `${user.firstName} ${user.lastName}`.trim()
+    `${user.firstName || ''} ${user.lastName || ''}`.trim()
   ].filter(Boolean) : [];
   
   // Check if token is for the current user by name, email, or batch member name
@@ -580,12 +580,12 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
             <div className="mt-4 p-3 bg-white/20 rounded-lg text-left">
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4 flex-shrink-0" />
-                <span className="font-semibold">{latestToken.senderName}</span>
+                <span className="font-semibold">{latestToken.senderName || "익명"}</span>
                 <span className="text-pink-100">님이</span>
-                <span className="font-bold">{(latestToken.amount / 10000).toFixed(0)}만원</span>
+                <span className="font-bold">{((latestToken.amount || 0) / 10000).toFixed(0)}만원</span>
               </div>
               <Button
-                onClick={() => handleAccept(latestToken.id, latestToken.amount)}
+                onClick={() => handleAccept(latestToken.id, latestToken.amount || 0)}
                 disabled={acceptToken.isPending}
                 className="mt-3 w-full bg-white text-pink-600 hover:bg-pink-50"
                 data-testid="button-quick-accept"
@@ -634,7 +634,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
                       <Mail className="w-4 h-4" />
                       <span className="font-semibold">{token.senderName || "익명"}</span>
                       <span className="text-muted-foreground">님이</span>
-                      <span className="font-bold text-lg">{(token.amount / 10000).toFixed(0)}만원</span>
+                      <span className="font-bold text-lg">{((token.amount || 0) / 10000).toFixed(0)}만원</span>
                       <span className="text-muted-foreground">을 보냈습니다</span>
                     </div>
                     {token.message && (
@@ -647,7 +647,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
                         {safeFormatDate(token.createdAt, "MM/dd HH:mm")}
                       </span>
                       <Button
-                        onClick={() => handleAccept(token.id, token.amount)}
+                        onClick={() => handleAccept(token.id, token.amount || 0)}
                         disabled={acceptToken.isPending}
                         className="bg-pink-500 hover:bg-pink-600 text-white"
                         data-testid={`button-accept-${token.id}`}
