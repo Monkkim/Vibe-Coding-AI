@@ -29,6 +29,24 @@ function safeFormatDate(dateValue: string | Date | null | undefined, formatStr: 
   }
 }
 
+// Centralized token validation and normalization helper
+function isValidToken(token: Token | null | undefined): token is Token {
+  if (!token) return false;
+  const id = Number(token.id);
+  if (!Number.isFinite(id) || id <= 0) return false;
+  return true;
+}
+
+function getTokenAmount(token: Token): number {
+  const amount = Number(token.amount);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function formatTokenAmount(amount: number): string {
+  const numAmount = Number.isFinite(amount) ? amount : 0;
+  return (numAmount / 10000).toFixed(0);
+}
+
 // Error boundary to prevent white screen crashes
 class TokenGameErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -216,8 +234,13 @@ function TokenGameInner({ batchId }: { batchId: number }) {
 
       tokens.forEach((t: Token) => {
         try {
+          // Skip invalid tokens using centralized helper
+          if (!isValidToken(t)) {
+            console.warn('Skipping invalid token in myStats:', t);
+            return;
+          }
+          const amount = getTokenAmount(t);
           if (isTokenForMe(t)) {
-            const amount = t.amount || 0;
             if (t.status === "pending") {
               pending += amount;
               pendingCount++;
@@ -239,7 +262,7 @@ function TokenGameInner({ batchId }: { batchId: number }) {
             }
           }
           if (isMe(t.senderName) || t.fromUserId === user.id) {
-            given += (t.amount || 0);
+            given += amount;
           }
         } catch (tokenError) {
           console.error('Error processing token:', tokenError, t);
@@ -257,13 +280,13 @@ function TokenGameInner({ batchId }: { batchId: number }) {
     if (!tokens) return [];
     try {
       const scores: Record<string, number> = {};
-      tokens.forEach((t: Token) => {
+      tokens.filter(isValidToken).forEach((t: Token) => {
         try {
           const receiverName = t.receiverName;
           if (receiverName && typeof receiverName === 'string') {
             const trimmedName = receiverName.trim();
             if (trimmedName.length > 0) {
-              const amount = t.amount || 0;
+              const amount = getTokenAmount(t);
               scores[trimmedName] = (scores[trimmedName] || 0) + amount;
             }
           }
@@ -527,15 +550,23 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
   };
   
   const pendingTokens = tokens?.filter(
-    (t: Token) => isTokenForMe(t) && t.status === "pending"
+    (t: Token) => {
+      // Skip tokens without valid id using centralized helper
+      if (!isValidToken(t)) {
+        console.warn('Skipping invalid token:', t);
+        return false;
+      }
+      return isTokenForMe(t) && t.status === "pending";
+    }
   ) || [];
 
   const handleAccept = (tokenId: number, amount: number) => {
+    const normalizedAmount = Number.isFinite(amount) ? amount : 0;
     acceptToken.mutate(tokenId, {
       onSuccess: () => {
         toast({
           title: "가치를 받았습니다!",
-          description: `${(amount / 10000).toFixed(0)}만원이 레벨에 반영되었습니다.`
+          description: `${formatTokenAmount(normalizedAmount)}만원이 레벨에 반영되었습니다.`
         });
         // Close dialog if no more pending tokens after accepting
         const remainingTokens = pendingTokens.filter(t => t.id !== tokenId);
@@ -576,16 +607,16 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
           <p className="text-4xl font-bold">{(pending / 10000).toFixed(0)}만원</p>
           <p className="text-pink-100 text-sm mt-1">아직 확정되지 않은 가치</p>
           
-          {latestToken && (
+          {latestToken && isValidToken(latestToken) && (
             <div className="mt-4 p-3 bg-white/20 rounded-lg text-left">
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4 flex-shrink-0" />
                 <span className="font-semibold">{latestToken.senderName || "익명"}</span>
                 <span className="text-pink-100">님이</span>
-                <span className="font-bold">{((latestToken.amount || 0) / 10000).toFixed(0)}만원</span>
+                <span className="font-bold">{formatTokenAmount(getTokenAmount(latestToken))}만원</span>
               </div>
               <Button
-                onClick={() => handleAccept(latestToken.id, latestToken.amount || 0)}
+                onClick={() => handleAccept(latestToken.id, getTokenAmount(latestToken))}
                 disabled={acceptToken.isPending}
                 className="mt-3 w-full bg-white text-pink-600 hover:bg-pink-50"
                 data-testid="button-quick-accept"
@@ -624,7 +655,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
             {pendingTokens.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">대기 중인 가치가 없습니다</p>
             ) : (
-              pendingTokens.map((token: Token) => (
+              pendingTokens.filter(isValidToken).map((token: Token) => (
                 <div 
                   key={token.id} 
                   className="p-4 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 rounded-lg border border-pink-200/50 dark:border-pink-800/30"
@@ -634,7 +665,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
                       <Mail className="w-4 h-4" />
                       <span className="font-semibold">{token.senderName || "익명"}</span>
                       <span className="text-muted-foreground">님이</span>
-                      <span className="font-bold text-lg">{((token.amount || 0) / 10000).toFixed(0)}만원</span>
+                      <span className="font-bold text-lg">{formatTokenAmount(getTokenAmount(token))}만원</span>
                       <span className="text-muted-foreground">을 보냈습니다</span>
                     </div>
                     {token.message && (
@@ -647,7 +678,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
                         {safeFormatDate(token.createdAt, "MM/dd HH:mm")}
                       </span>
                       <Button
-                        onClick={() => handleAccept(token.id, token.amount || 0)}
+                        onClick={() => handleAccept(token.id, getTokenAmount(token))}
                         disabled={acceptToken.isPending}
                         className="bg-pink-500 hover:bg-pink-600 text-white"
                         data-testid={`button-accept-${token.id}`}
@@ -701,9 +732,11 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
   }) || [];
 
   const handleSubmit = () => {
-    const finalAmount = amount || Number(customAmount) * 10000;
-    if (!recipient || !finalAmount || !category) {
-      toast({ title: "입력 확인", description: "받는 사람, 금액, 가치 카테고리를 모두 선택해주세요.", variant: "destructive" });
+    const customNum = Number(customAmount);
+    const finalAmount = amount || (Number.isFinite(customNum) ? customNum * 10000 : 0);
+    
+    if (!recipient || !Number.isFinite(finalAmount) || finalAmount <= 0 || !category) {
+      toast({ title: "입력 확인", description: "받는 사람, 올바른 금액, 가치 카테고리를 모두 선택해주세요.", variant: "destructive" });
       return;
     }
 
@@ -869,7 +902,8 @@ function RecognizeValueForm({ user, batchId }: { user: any; batchId: number }) {
 }
 
 function RealtimeActivityFeed({ tokens }: { tokens: Token[] | undefined }) {
-  const recentTokens = tokens?.slice(0, 5) || [];
+  // Safely filter and slice tokens using centralized helper
+  const recentTokens = (tokens ?? []).filter(isValidToken).slice(0, 5);
 
   return (
     <Card className="p-4">
@@ -886,14 +920,14 @@ function RealtimeActivityFeed({ tokens }: { tokens: Token[] | undefined }) {
               const receiverName = token.receiverName && typeof token.receiverName === 'string'
                 ? token.receiverName.trim() || "멤버"
                 : "멤버";
-              const amount = token.amount || 0;
+              const amount = getTokenAmount(token);
 
               return (
                 <div key={token.id} className="p-2 bg-muted/30 rounded-lg text-xs">
                   <div className="flex justify-between items-start">
                     <span>
                       <span className="font-semibold">{senderName}</span>
-                      <span className="text-muted-foreground">: {receiverName}님께 받은 {(amount / 10000).toFixed(0)}만원 우와!</span>
+                      <span className="text-muted-foreground">: {receiverName}님께 받은 {formatTokenAmount(amount)}만원 우와!</span>
                     </span>
                   </div>
                   <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
