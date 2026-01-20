@@ -338,16 +338,16 @@ function TokenGameInner({ batchId }: { batchId: number }) {
         </h2>
         <p className="text-muted-foreground text-sm mt-1">1:1 기여 기반 코칭 토큰 시스템</p>
         
-        {showNotification && myStats.pendingCount > 0 && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 bg-gradient-to-r from-pink-100 to-rose-100 dark:from-pink-900/50 dark:to-rose-900/50 border border-pink-300 dark:border-pink-700 rounded-xl p-4 shadow-lg max-w-sm">
-            <p className="text-pink-700 dark:text-pink-300 font-medium">
-              {myStats.latestPendingSender || "누군가"}님이 {user?.firstName}님의 가치를 인정했습니다!
-            </p>
-            <p className="text-sm text-pink-600 dark:text-pink-400 mt-1">
-              지금 바로 확인해보세요!
-            </p>
-          </div>
-        )}
+        <div 
+          className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 bg-gradient-to-r from-pink-100 to-rose-100 dark:from-pink-900/50 dark:to-rose-900/50 border border-pink-300 dark:border-pink-700 rounded-xl p-4 shadow-lg max-w-sm transition-opacity duration-200 ${showNotification && myStats.pendingCount > 0 ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}
+        >
+          <p className="text-pink-700 dark:text-pink-300 font-medium">
+            {myStats.latestPendingSender || "누군가"}님이 {user?.firstName}님의 가치를 인정했습니다!
+          </p>
+          <p className="text-sm text-pink-600 dark:text-pink-400 mt-1">
+            지금 바로 확인해보세요!
+          </p>
+        </div>
       </div>
 
       <GameRulesSection />
@@ -479,23 +479,20 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
 }) {
   const acceptToken = useAcceptToken(batchId);
   const { toast } = useToast();
-  const [showPendingDialog, setShowPendingDialog] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
 
-  // Sync openFromHeader with internal state to prevent Dialog state conflicts
-  useEffect(() => {
-    if (openFromHeader) {
-      setShowPendingDialog(true);
-    }
-  }, [openFromHeader]);
+  // Combine both open states - dialog should be open if either is true
+  const dialogOpen = internalOpen || (openFromHeader ?? false);
 
   const handleCloseDialog = (open: boolean) => {
     if (!open) {
-      setShowPendingDialog(false);
+      // Close both states when dialog is closed
+      setInternalOpen(false);
       if (onCloseFromHeader) {
         onCloseFromHeader();
       }
     } else {
-      setShowPendingDialog(true);
+      setInternalOpen(true);
     }
   };
   
@@ -571,7 +568,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
         // Close dialog if no more pending tokens after accepting
         const remainingTokens = pendingTokens.filter(t => t.id !== tokenId);
         if (remainingTokens.length === 0) {
-          setShowPendingDialog(false);
+          setInternalOpen(false);
           if (onCloseFromHeader) {
             onCloseFromHeader();
           }
@@ -629,7 +626,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
           
           {pendingTokens.length > 1 && (
             <Button
-              onClick={() => setShowPendingDialog(true)}
+              onClick={() => setInternalOpen(true)}
               variant="ghost"
               className="mt-2 text-white hover:bg-white/20"
               data-testid="button-check-pending"
@@ -640,7 +637,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
         </div>
       </Card>
 
-      <Dialog open={showPendingDialog} onOpenChange={handleCloseDialog}>
+      <Dialog open={dialogOpen} onOpenChange={handleCloseDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-pink-600">
@@ -655,9 +652,9 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
             {pendingTokens.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">대기 중인 가치가 없습니다</p>
             ) : (
-              pendingTokens.filter(isValidToken).map((token: Token) => (
+              pendingTokens.filter(isValidToken).map((token: Token, idx: number) => (
                 <div 
-                  key={token.id} 
+                  key={`pending-${token.id}-${idx}`} 
                   className="p-4 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 rounded-lg border border-pink-200/50 dark:border-pink-800/30"
                 >
                   <div className="space-y-3">
@@ -912,31 +909,27 @@ function RealtimeActivityFeed({ tokens }: { tokens: Token[] | undefined }) {
       </h3>
       <ScrollArea className="h-[200px]">
         <div className="space-y-2">
-          {recentTokens.map((token: Token) => {
-            try {
-              const senderName = token.senderName && typeof token.senderName === 'string'
-                ? token.senderName.trim() || "익명"
-                : "익명";
-              const receiverName = token.receiverName && typeof token.receiverName === 'string'
-                ? token.receiverName.trim() || "멤버"
-                : "멤버";
-              const amount = getTokenAmount(token);
+          {recentTokens.map((token: Token, index: number) => {
+            const senderName = token.senderName && typeof token.senderName === 'string'
+              ? token.senderName.trim() || "익명"
+              : "익명";
+            const receiverName = token.receiverName && typeof token.receiverName === 'string'
+              ? token.receiverName.trim() || "멤버"
+              : "멤버";
+            const amount = getTokenAmount(token);
+            const stableKey = `token-${token.id}-${index}`;
 
-              return (
-                <div key={token.id} className="p-2 bg-muted/30 rounded-lg text-xs">
-                  <div className="flex justify-between items-start">
-                    <span>
-                      <span className="font-semibold">{senderName}</span>
-                      <span className="text-muted-foreground">: {receiverName}님께 받은 {formatTokenAmount(amount)}만원 우와!</span>
-                    </span>
-                  </div>
-                  <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
+            return (
+              <div key={stableKey} className="p-2 bg-muted/30 rounded-lg text-xs">
+                <div className="flex justify-between items-start">
+                  <span>
+                    <span className="font-semibold">{senderName}</span>
+                    <span className="text-muted-foreground">: {receiverName}님께 받은 {formatTokenAmount(amount)}만원 우와!</span>
+                  </span>
                 </div>
-              );
-            } catch (error) {
-              console.error('Error rendering token in activity feed:', error, token);
-              return null;
-            }
+                <p className="text-muted-foreground mt-1">{safeFormatDate(token.createdAt, "HH:mm")}</p>
+              </div>
+            );
           })}
           {recentTokens.length === 0 && (
             <p className="text-center text-muted-foreground text-sm py-4">아직 활동이 없습니다</p>
@@ -975,9 +968,9 @@ function LeaderboardCard({ leaderboard, userName }: { leaderboard: { name: strin
       </div>
       <ScrollArea className="h-[200px]">
         <div className="space-y-2">
-          {leaderboard.map((entry) => (
+          {leaderboard.map((entry, index) => (
             <div 
-              key={entry.name} 
+              key={`rank-${entry.rank}-${entry.name}-${index}`} 
               className={`flex items-center justify-between p-2 rounded-lg ${
                 entry.name === userName ? "bg-amber-100 dark:bg-amber-900/30" : "bg-muted/30"
               }`}
