@@ -480,19 +480,26 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
   const acceptToken = useAcceptToken(batchId);
   const { toast } = useToast();
   const [internalOpen, setInternalOpen] = useState(false);
+  // Track tokens being accepted to hide them from UI immediately
+  const [acceptingTokenIds, setAcceptingTokenIds] = useState<Set<number>>(new Set());
+  // Track dialog close request to defer until safe
+  const [pendingClose, setPendingClose] = useState(false);
 
   // Combine both open states - dialog should be open if either is true
-  const dialogOpen = internalOpen || (openFromHeader ?? false);
+  const dialogOpen = (internalOpen || (openFromHeader ?? false)) && !pendingClose;
 
   const handleCloseDialog = (open: boolean) => {
     if (!open) {
-      // Close both states when dialog is closed
-      setInternalOpen(false);
-      if (onCloseFromHeader) {
-        onCloseFromHeader();
-      }
+      // Use requestAnimationFrame to defer close until DOM is stable
+      requestAnimationFrame(() => {
+        setInternalOpen(false);
+        if (onCloseFromHeader) {
+          onCloseFromHeader();
+        }
+      });
     } else {
       setInternalOpen(true);
+      setPendingClose(false);
     }
   };
   
@@ -546,6 +553,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
     }
   };
   
+  // Filter out tokens that are currently being accepted (optimistic UI)
   const pendingTokens = tokens?.filter(
     (t: Token) => {
       // Skip tokens without valid id using centralized helper
@@ -553,29 +561,81 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
         console.warn('Skipping invalid token:', t);
         return false;
       }
+      // Skip tokens currently being accepted (normalize ID to number for comparison)
+      const tokenIdNum = Number(t.id);
+      if (acceptingTokenIds.has(tokenIdNum)) {
+        return false;
+      }
       return isTokenForMe(t) && t.status === "pending";
     }
   ) || [];
 
-  const handleAccept = (tokenId: number, amount: number) => {
+  const handleAccept = (tokenId: number | string, amount: number) => {
     const normalizedAmount = Number.isFinite(amount) ? amount : 0;
-    acceptToken.mutate(tokenId, {
+    const normalizedTokenId = Number(tokenId);
+    
+    // Validate token ID before proceeding
+    if (!Number.isFinite(normalizedTokenId) || normalizedTokenId <= 0) {
+      console.error('Invalid token ID:', tokenId);
+      toast({
+        title: "토큰 수락 실패",
+        description: "올바르지 않은 토큰입니다.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Optimistically hide this token from UI immediately
+    setAcceptingTokenIds(prev => {
+      const next = new Set(Array.from(prev));
+      next.add(normalizedTokenId);
+      return next;
+    });
+    
+    // Check if this will be the last token (before we hide it)
+    const willBeEmpty = pendingTokens.length <= 1;
+    
+    // If this is the last token, schedule dialog close after a delay
+    if (willBeEmpty) {
+      setPendingClose(true);
+      // Use multiple frames to ensure DOM is stable before closing
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setInternalOpen(false);
+          if (onCloseFromHeader) {
+            onCloseFromHeader();
+          }
+          setPendingClose(false);
+        });
+      });
+    }
+    
+    acceptToken.mutate(normalizedTokenId, {
       onSuccess: () => {
         toast({
           title: "가치를 받았습니다!",
           description: `${formatTokenAmount(normalizedAmount)}만원이 레벨에 반영되었습니다.`
         });
-        // Close dialog if no more pending tokens after accepting
-        const remainingTokens = pendingTokens.filter(t => t.id !== tokenId);
-        if (remainingTokens.length === 0) {
-          setInternalOpen(false);
-          if (onCloseFromHeader) {
-            onCloseFromHeader();
-          }
-        }
+        // Remove from accepting set after mutation completes
+        setAcceptingTokenIds(prev => {
+          const next = new Set(Array.from(prev));
+          next.delete(normalizedTokenId);
+          return next;
+        });
       },
       onError: (error: any) => {
         console.error("Token accept error:", error);
+        // Restore token visibility on error
+        setAcceptingTokenIds(prev => {
+          const next = new Set(Array.from(prev));
+          next.delete(normalizedTokenId);
+          return next;
+        });
+        // Reopen dialog if we prematurely closed it
+        if (willBeEmpty) {
+          setInternalOpen(true);
+          setPendingClose(false);
+        }
         toast({
           title: "토큰 수락 실패",
           description: error?.message || "토큰을 수락하는 중 오류가 발생했습니다.",
@@ -638,7 +698,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={handleCloseDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" key={`dialog-content-${pendingTokens.length}`}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-pink-600">
               <Gift className="w-5 h-5" />
@@ -648,7 +708,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
           <p className="text-sm text-muted-foreground">
             아래 가치들을 확인하고 "받기"를 눌러 레벨에 반영하세요.
           </p>
-          <div className="py-4 space-y-3 max-h-[400px] overflow-y-auto">
+          <div className="py-4 space-y-3 max-h-[400px] overflow-y-auto" key={`token-list-${pendingTokens.map(t => t.id).join('-')}`}>
             {pendingTokens.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">대기 중인 가치가 없습니다</p>
             ) : (
