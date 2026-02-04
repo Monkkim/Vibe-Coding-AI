@@ -24,7 +24,7 @@ export interface IStorage extends IAuthStorage {
   // Tokens
   getTokens(batchId?: number): Promise<Token[]>;
   createToken(token: InsertToken): Promise<Token>;
-  acceptToken(id: number): Promise<Token>;
+  acceptToken(id: number): Promise<Token | undefined>;
 
   // Leads
   getLeads(): Promise<Lead[]>;
@@ -125,7 +125,7 @@ export class DatabaseStorage implements IStorage {
     return token;
   }
 
-  async acceptToken(id: number): Promise<Token> {
+  async acceptToken(id: number): Promise<Token | undefined> {
     const [token] = await db.update(tokens).set({ status: "accepted" }).where(eq(tokens.id, id)).returning();
     return token;
   }

@@ -211,9 +211,14 @@ export async function registerRoutes(
 
   // --- Tokens ---
   app.get(api.tokens.list.path, async (req, res) => {
-    const batchId = req.query.batchId ? Number(req.query.batchId) : undefined;
-    const tokens = await storage.getTokens(batchId);
-    res.json(tokens);
+    try {
+      const batchId = req.query.batchId ? Number(req.query.batchId) : undefined;
+      const tokens = await storage.getTokens(batchId);
+      res.json(tokens);
+    } catch (error) {
+      console.error("Token list error:", error);
+      res.status(500).json({ message: "토큰 목록을 불러오는데 실패했습니다." });
+    }
   });
 
   app.post(api.tokens.create.path, isAuthenticated, async (req: any, res) => {
@@ -254,62 +259,70 @@ export async function registerRoutes(
   });
 
   app.post(api.tokens.accept.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.id;
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ message: "User not found" });
+    try {
+      const userId = req.user.id;
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const tokens = await storage.getTokens();
+      const targetToken = tokens.find(t => t.id === Number(req.params.id));
+
+      if (!targetToken) {
+        return res.status(404).json({ message: "Token not found" });
+      }
+
+      // Check if this token belongs to the current user
+      const userEmail = user.email?.toLowerCase();
+      const userIdentifiers = [
+        user.firstName,
+        user.email,
+        user.id,
+        `${user.firstName || ''} ${user.lastName || ''}`.trim()
+      ].filter(Boolean).map(id => id.toLowerCase());
+
+      // Get batch members with the same email to check for name matches
+      const allBatchMembers = await storage.getAllBatchMembers();
+      const myBatchMemberNames = userEmail
+        ? allBatchMembers
+            .filter(m => m.email?.toLowerCase() === userEmail && m.name)
+            .map(m => m.name!.toLowerCase())
+        : [];
+
+      // Check if token is for the current user using multiple methods
+      let isTokenForMe = false;
+
+      // Check 1: receiverEmail matches user's email (most reliable)
+      if (targetToken.receiverEmail && userEmail && targetToken.receiverEmail.toLowerCase() === userEmail) {
+        isTokenForMe = true;
+      }
+      // Check 2: toUserId matches user id
+      else if (targetToken.toUserId === userId) {
+        isTokenForMe = true;
+      }
+      // Check 3: receiverName matches any batch member with the same email as user
+      else if (targetToken.receiverName && myBatchMemberNames.includes(targetToken.receiverName.toLowerCase())) {
+        isTokenForMe = true;
+      }
+      // Check 4: receiverName matches any of user's identifiers
+      else if (targetToken.receiverName && userIdentifiers.some(id => id === targetToken.receiverName?.toLowerCase())) {
+        isTokenForMe = true;
+      }
+
+      if (!isTokenForMe) {
+        return res.status(403).json({ message: "You can only accept tokens sent to you" });
+      }
+
+      const token = await storage.acceptToken(Number(req.params.id));
+      if (!token) {
+        return res.status(404).json({ message: "토큰을 업데이트할 수 없습니다." });
+      }
+      res.json(token);
+    } catch (error) {
+      console.error("Token accept error:", error);
+      res.status(500).json({ message: "토큰 수락에 실패했습니다." });
     }
-
-    const tokens = await storage.getTokens();
-    const targetToken = tokens.find(t => t.id === Number(req.params.id));
-
-    if (!targetToken) {
-      return res.status(404).json({ message: "Token not found" });
-    }
-
-    // Check if this token belongs to the current user
-    const userEmail = user.email?.toLowerCase();
-    const userIdentifiers = [
-      user.firstName,
-      user.email,
-      user.id,
-      `${user.firstName || ''} ${user.lastName || ''}`.trim()
-    ].filter(Boolean).map(id => id.toLowerCase());
-
-    // Get batch members with the same email to check for name matches
-    const allBatchMembers = await storage.getAllBatchMembers();
-    const myBatchMemberNames = userEmail
-      ? allBatchMembers
-          .filter(m => m.email?.toLowerCase() === userEmail && m.name)
-          .map(m => m.name!.toLowerCase())
-      : [];
-
-    // Check if token is for the current user using multiple methods
-    let isTokenForMe = false;
-
-    // Check 1: receiverEmail matches user's email (most reliable)
-    if (targetToken.receiverEmail && userEmail && targetToken.receiverEmail.toLowerCase() === userEmail) {
-      isTokenForMe = true;
-    }
-    // Check 2: toUserId matches user id
-    else if (targetToken.toUserId === userId) {
-      isTokenForMe = true;
-    }
-    // Check 3: receiverName matches any batch member with the same email as user
-    else if (targetToken.receiverName && myBatchMemberNames.includes(targetToken.receiverName.toLowerCase())) {
-      isTokenForMe = true;
-    }
-    // Check 4: receiverName matches any of user's identifiers
-    else if (targetToken.receiverName && userIdentifiers.some(id => id === targetToken.receiverName?.toLowerCase())) {
-      isTokenForMe = true;
-    }
-
-    if (!isTokenForMe) {
-      return res.status(403).json({ message: "You can only accept tokens sent to you" });
-    }
-
-    const token = await storage.acceptToken(Number(req.params.id));
-    res.json(token);
   });
 
   // --- Leads ---

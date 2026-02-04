@@ -128,7 +128,7 @@ export function TokenGame({ batchId }: { batchId: number }) {
 }
 
 function TokenGameInner({ batchId }: { batchId: number }) {
-  const { data: tokens, isLoading } = useTokens(batchId);
+  const { data: tokens, isLoading, isError, error } = useTokens(batchId);
   const { data: batchMembers } = useBatchMembers(batchId);
   const { user } = useAuth();
   const [showNotification, setShowNotification] = useState(false);
@@ -313,6 +313,19 @@ function TokenGameInner({ batchId }: { batchId: number }) {
   }, [myStats.pendingCount]);
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground animate-pulse">로딩 중...</div>;
+
+  if (isError) return (
+    <Card className="p-8 text-center">
+      <AlertCircle className="w-12 h-12 mx-auto mb-4 text-destructive" />
+      <h3 className="font-bold mb-2">토큰 데이터를 불러올 수 없습니다</h3>
+      <p className="text-sm text-muted-foreground mb-4">
+        {(error as any)?.message || "서버와의 연결에 문제가 발생했습니다."}
+      </p>
+      <Button onClick={() => window.location.reload()}>
+        새로고침
+      </Button>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
