@@ -495,24 +495,18 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
   const [internalOpen, setInternalOpen] = useState(false);
   // Track tokens being accepted to hide them from UI immediately
   const [acceptingTokenIds, setAcceptingTokenIds] = useState<Set<number>>(new Set());
-  // Track dialog close request to defer until safe
-  const [pendingClose, setPendingClose] = useState(false);
 
   // Combine both open states - dialog should be open if either is true
-  const dialogOpen = (internalOpen || (openFromHeader ?? false)) && !pendingClose;
+  const dialogOpen = internalOpen || (openFromHeader ?? false);
 
   const handleCloseDialog = (open: boolean) => {
     if (!open) {
-      // Use requestAnimationFrame to defer close until DOM is stable
-      requestAnimationFrame(() => {
-        setInternalOpen(false);
-        if (onCloseFromHeader) {
-          onCloseFromHeader();
-        }
-      });
+      setInternalOpen(false);
+      if (onCloseFromHeader) {
+        onCloseFromHeader();
+      }
     } else {
       setInternalOpen(true);
-      setPendingClose(false);
     }
   };
   
@@ -608,19 +602,14 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
     // Check if this will be the last token (before we hide it)
     const willBeEmpty = pendingTokens.length <= 1;
     
-    // If this is the last token, schedule dialog close after a delay
+    // If this is the last token, close dialog after animation completes
     if (willBeEmpty) {
-      setPendingClose(true);
-      // Use multiple frames to ensure DOM is stable before closing
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setInternalOpen(false);
-          if (onCloseFromHeader) {
-            onCloseFromHeader();
-          }
-          setPendingClose(false);
-        });
-      });
+      setTimeout(() => {
+        setInternalOpen(false);
+        if (onCloseFromHeader) {
+          onCloseFromHeader();
+        }
+      }, 300);
     }
     
     acceptToken.mutate(normalizedTokenId, {
@@ -647,7 +636,6 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
         // Reopen dialog if we prematurely closed it
         if (willBeEmpty) {
           setInternalOpen(true);
-          setPendingClose(false);
         }
         toast({
           title: "토큰 수락 실패",
@@ -711,7 +699,7 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={handleCloseDialog}>
-        <DialogContent className="sm:max-w-md" key={`dialog-content-${pendingTokens.length}`}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-pink-600">
               <Gift className="w-5 h-5" />
@@ -721,13 +709,13 @@ function PendingReceiveCard({ pending, tokens, user, batchId, myBatchMemberNames
           <p className="text-sm text-muted-foreground">
             아래 가치들을 확인하고 "받기"를 눌러 레벨에 반영하세요.
           </p>
-          <div className="py-4 space-y-3 max-h-[400px] overflow-y-auto" key={`token-list-${pendingTokens.map(t => t.id).join('-')}`}>
+          <div className="py-4 space-y-3 max-h-[400px] overflow-y-auto">
             {pendingTokens.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">대기 중인 가치가 없습니다</p>
             ) : (
-              pendingTokens.filter(isValidToken).map((token: Token, idx: number) => (
+              pendingTokens.filter(isValidToken).map((token: Token) => (
                 <div 
-                  key={`pending-${token.id}-${idx}`} 
+                  key={`pending-${token.id}`}
                   className="p-4 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 rounded-lg border border-pink-200/50 dark:border-pink-800/30"
                 >
                   <div className="space-y-3">
